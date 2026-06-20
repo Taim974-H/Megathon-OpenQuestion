@@ -1206,7 +1206,7 @@ export function ChatApp() {
                   Saddling up your chats...
                 </div>
               ) : messages.length === 0 ? (
-                <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col items-center justify-center gap-5 py-4 text-center sm:gap-6">
+                <div className="mx-auto flex h-full w-full max-w-4xl flex-col items-center justify-center gap-[clamp(0.75rem,2.5vh,1.5rem)] overflow-hidden py-2 text-center">
                   <div className="hero-orb shrink-0">
                     {mode === "horse" ? (
                       <Image
@@ -1214,19 +1214,19 @@ export function ChatApp() {
                         alt={appName}
                         width={280}
                         height={190}
-                        className="h-[clamp(110px,18vh,170px)] w-auto rounded-[1.6rem] object-cover sm:rounded-[1.8rem]"
+                        className="h-[clamp(88px,15vh,150px)] w-auto rounded-[1.4rem] object-cover sm:rounded-[1.8rem]"
                         priority
                       />
                     ) : (
-                      <div className="flex h-[clamp(110px,18vh,170px)] w-[clamp(160px,26vh,250px)] items-center justify-center rounded-[1.6rem] text-[clamp(3.5rem,9vh,5.5rem)] sm:rounded-[1.8rem]">
+                      <div className="flex h-[clamp(88px,15vh,150px)] w-[clamp(130px,22vh,220px)] items-center justify-center rounded-[1.4rem] text-[clamp(3rem,7.5vh,5rem)] sm:rounded-[1.8rem]">
                         🦄
                       </div>
                     )}
                   </div>
-                  <h1 className="px-2 text-[clamp(1.9rem,5vw,3.75rem)] font-semibold leading-tight tracking-tight">
+                  <h1 className="shrink-0 px-2 text-[clamp(1.6rem,4vw,3.25rem)] font-semibold leading-tight tracking-tight">
                     {starterLine}
                   </h1>
-                  <div className="flex w-full max-w-xl flex-wrap justify-center gap-3">
+                  <div className="flex w-full max-w-xl shrink-0 flex-wrap justify-center gap-2 sm:gap-3">
                     {SUGGESTIONS[mode].map((suggestion) => (
                       <button
                         key={suggestion}

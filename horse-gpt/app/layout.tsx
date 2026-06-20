@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HorseGPT",
+  title: "HorseGPT / UnicornGPT",
   description: "A GPT wrapper that responds in a horse persona with server-side guardrails.",
 };
 

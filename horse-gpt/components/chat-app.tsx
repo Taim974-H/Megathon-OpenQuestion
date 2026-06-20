@@ -6,152 +6,534 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
 
-import { APP_NAME, HORSE_NAME, STORAGE_KEY } from "@/lib/chat-config";
-import type { ChatMessage } from "@/types/chat";
+import { MODE_STORAGE_KEY, getModeAppName } from "@/lib/chat-config";
+import type { ChatMessage, ChatMode, ChatThread } from "@/types/chat";
 
-type ChatResponse = {
-  message: ChatMessage;
-  blocked?: boolean;
-  reason?: string;
+type ExportResponse = {
+  fileName?: string;
+  pdfBase64?: string;
+  sent?: boolean;
+  error?: string;
 };
 
+type ChatsResponse = {
+  threads?: ChatThread[];
+  thread?: ChatThread;
+  error?: string;
+};
+
+type ChatStreamEvent =
+  | { type: "delta"; delta: string }
+  | { type: "final"; content: string }
+  | { type: "notice"; notice: string }
+  | { type: "error"; error: string };
+
 const MAX_VISIBLE_MESSAGES = 16;
-const LEGACY_WELCOME_MESSAGE =
-  "Neigh there. This is HorseGPT: a GPT wrapper with one job, which is letting me, Marigold, answer everything like a horse with suspicious levels of confidence.";
-const WELCOME_COLUMNS = [
-  {
-    title: "Examples",
-    interactive: true,
-    items: [
-      "Explain quantum computing like we're both in a stable.",
-      "Write a launch post as a horse.",
-      "Roast my startup pitch with hoof energy.",
-    ],
-  },
-  {
-    title: "Capabilities",
-    interactive: false,
-    items: [
-      "Answers normal prompts through a horse persona",
-      "Keeps the GPT wrapper and guardrails server-side",
-      "Supports typed chat and optional voice input",
-    ],
-  },
-  {
-    title: "Limitations",
-    interactive: false,
-    items: [
-      "Refuses unsafe veterinary, abusive, or sexual animal content",
-      "Can still be wrong, even when neighing with confidence",
-      "Horse energy is mandatory and not configurable",
-    ],
-  },
-] as const;
+const SUGGESTIONS: Record<ChatMode, string[]> = {
+  horse: [
+    "Plan my week like a stable genius.",
+    "Write a text to cancel dinner with hoofed grace.",
+    "Fix my grocery list with horse logic.",
+  ],
+  unicorn: [
+    "Turn my Monday into a glitter survival plan.",
+    "Write a chaotic birthday text with unicorn drama.",
+    "Make my to-do list sound mythic and ridiculous.",
+  ],
+};
+const STARTER_LINES: Record<ChatMode, string[]> = {
+  horse: [
+    "Where should we gallop?",
+    "Which haywire problem are we trotting into?",
+    "What chaos needs a horse today?",
+    "Which stable-grade life mess are we fixing?",
+  ],
+  unicorn: [
+    "Which rainbow are we galloping toward?",
+    "What glitter emergency are we charging into?",
+    "Which cosmic mess needs a unicorn hoof?",
+    "Where should this magical stampede begin?",
+  ],
+};
+const SPARKLE_SEEDS = Array.from({ length: 18 }, (_, index) => ({
+  left: (index * 19) % 100,
+  top: (index * 23) % 100,
+  size: 5 + (index % 6),
+  hue: (index * 37) % 360,
+  delay: index * 0.35,
+  speed: 1 + (index % 4),
+}));
+const BURST_SEEDS = Array.from({ length: 24 }, (_, index) => ({
+  left: 14 + ((index * 17) % 72),
+  top: 10 + ((index * 11) % 60),
+  size: 7 + (index % 7),
+  hue: (index * 31) % 360,
+  delay: index,
+  driftX: (index % 2 === 0 ? 1 : -1) * (42 + (index % 4) * 18),
+  driftY: -36 - (index % 5) * 22,
+}));
+const EMPTY_MESSAGES: ChatMessage[] = [];
 
-function readStoredMessages() {
+function ExportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M12 3v10" strokeLinecap="round" />
+      <path d="m8 9 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 15.5v1.5A2 2 0 0 0 6 19h12a2 2 0 0 0 2-2v-1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M6 10.5a6 6 0 0 0 12 0" strokeLinecap="round" />
+      <path d="M12 17v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ArrowUpIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 5v14" strokeLinecap="round" />
+      <path d="m7 10 5-5 5 5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function readStoredMode(): ChatMode {
   if (typeof window === "undefined") {
-    return [];
+    return "horse";
   }
 
-  const saved = window.localStorage.getItem(STORAGE_KEY);
+  return window.localStorage.getItem(MODE_STORAGE_KEY) === "unicorn"
+    ? "unicorn"
+    : "horse";
+}
 
-  if (!saved) {
-    return [];
+function pickRandom<T>(items: T[]) {
+  return items[Math.floor(Math.random() * items.length)] ?? items[0];
+}
+
+function pickStarterLine(mode: ChatMode) {
+  return pickRandom(STARTER_LINES[mode]);
+}
+
+function titleFromText(text: string, fallback: string) {
+  const trimmed = text.trim();
+
+  if (!trimmed) {
+    return fallback;
   }
 
-  try {
-    const parsed = JSON.parse(saved) as ChatMessage[];
+  return trimmed.length > 52 ? `${trimmed.slice(0, 52).trimEnd()}...` : trimmed;
+}
 
-    return parsed
-      .filter(
-        (message): message is ChatMessage =>
-          Boolean(message) &&
-          typeof message === "object" &&
-          (message.role === "user" || message.role === "assistant") &&
-          typeof message.content === "string" &&
-          message.content.trim().length > 0 &&
-          message.content !== LEGACY_WELCOME_MESSAGE,
-      )
-      .slice(-MAX_VISIBLE_MESSAGES);
-  } catch {
-    window.localStorage.removeItem(STORAGE_KEY);
-    return [];
+function triggerPdfDownload(fileName: string, pdfBase64: string) {
+  const binary = window.atob(pdfBase64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
   }
+
+  const blob = new Blob([bytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  link.click();
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function parseChunk(
+  chunk: string,
+  onEvent: (event: ChatStreamEvent) => void,
+  buffered = "",
+) {
+  const combined = buffered + chunk;
+  const lines = combined.split("\n");
+  const nextBuffer = lines.pop() ?? "";
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      continue;
+    }
+
+    onEvent(JSON.parse(trimmed) as ChatStreamEvent);
+  }
+
+  return nextBuffer;
 }
 
 export function ChatApp() {
-  const [messages, setMessages] = useState<ChatMessage[]>(readStoredMessages);
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [starterFallback, setStarterFallback] = useState(() =>
+    pickStarterLine(readStoredMode()),
+  );
+  const [mode, setMode] = useState<ChatMode>(readStoredMode);
   const [composer, setComposer] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportEmail, setExportEmail] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
+  const [burstVersion, setBurstVersion] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const bootModeRef = useRef(mode);
+  const currentThread =
+    threads.find((thread) => thread.id === currentChatId) ?? null;
+  const messages = currentThread?.messages ?? EMPTY_MESSAGES;
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-  }, [messages]);
+    let cancelled = false;
+
+    async function loadChats() {
+      try {
+        const response = await fetch("/api/chats", { cache: "no-store" });
+        const data = (await response.json()) as ChatsResponse;
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Unable to load chats.");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const nextThreads = data.threads ?? [];
+
+        if (nextThreads.length > 0) {
+          setThreads(nextThreads);
+          setCurrentChatId(nextThreads[0].id);
+          setMode(nextThreads[0].mode);
+          setStarterFallback(nextThreads[0].starterLine);
+        } else {
+          const starterLine = pickStarterLine(bootModeRef.current);
+          setStarterFallback(starterLine);
+
+          const createResponse = await fetch("/api/chats", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode: bootModeRef.current, starterLine }),
+          });
+          const createData = (await createResponse.json()) as ChatsResponse;
+
+          if (!createResponse.ok || !createData.thread) {
+            throw new Error(createData.error ?? "Unable to create a chat.");
+          }
+
+          if (cancelled) {
+            return;
+          }
+
+          setThreads([createData.thread]);
+          setCurrentChatId(createData.thread.id);
+          setMode(createData.thread.mode);
+          setStarterFallback(createData.thread.starterLine);
+        }
+      } catch (caughtError) {
+        if (!cancelled) {
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Unable to load chats.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingChats(false);
+        }
+      }
+    }
+
+    void loadChats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(MODE_STORAGE_KEY, mode);
+    document.documentElement.dataset.mode = mode;
+  }, [mode]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, error, notice]);
+  }, [messages, notice, error]);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = "0px";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`;
+  }, [composer]);
 
   useEffect(() => {
     return () => {
       if (recorderRef.current?.state === "recording") {
         recorderRef.current.stop();
       }
+
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
+  function mergeThread(thread: ChatThread, selectThread = false) {
+    setThreads((current) => [
+      thread,
+      ...current.filter((entry) => entry.id !== thread.id),
+    ]);
+
+    if (selectThread) {
+      setCurrentChatId(thread.id);
+      setStarterFallback(thread.starterLine);
+    }
+  }
+
+  function updateThreadLocal(
+    threadId: string,
+    updater: (thread: ChatThread) => ChatThread,
+  ) {
+    setThreads((current) => {
+      const thread = current.find((entry) => entry.id === threadId);
+
+      if (!thread) {
+        return current;
+      }
+
+      const nextThread = updater(thread);
+
+      return [
+        nextThread,
+        ...current.filter((entry) => entry.id !== threadId),
+      ];
+    });
+  }
+
+  async function persistThread(
+    threadId: string,
+    payload: {
+      messages?: ChatMessage[];
+      mode?: ChatMode;
+      starterLine?: string;
+      title?: string;
+    },
+  ) {
+    const response = await fetch(`/api/chats/${threadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = (await response.json()) as ChatsResponse;
+
+    if (!response.ok || !data.thread) {
+      throw new Error(data.error ?? "Unable to update the chat.");
+    }
+
+    mergeThread(data.thread);
+
+    return data.thread;
+  }
+
+  async function createNewChat(nextMode = mode) {
+    const starterLine = pickStarterLine(nextMode);
+
+    setComposer("");
+    setError(null);
+    setNotice(null);
+    setStarterFallback(starterLine);
+
+    try {
+      const response = await fetch("/api/chats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: nextMode, starterLine }),
+      });
+      const data = (await response.json()) as ChatsResponse;
+
+      if (!response.ok || !data.thread) {
+        throw new Error(data.error ?? "Unable to create a chat.");
+      }
+
+      mergeThread(data.thread, true);
+      setMode(data.thread.mode);
+
+      return data.thread;
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to create a chat.",
+      );
+
+      return null;
+    }
+  }
+
   async function sendMessage(rawText?: string) {
     const nextText = (rawText ?? composer).trim();
 
-    if (!nextText || isSending) {
+    if (!nextText || isSending || isExporting || isLoadingChats) {
       return;
     }
 
-    const nextMessages = [...messages, { role: "user" as const, content: nextText }];
+    let thread = currentThread;
+
+    if (!thread) {
+      thread = await createNewChat(mode);
+
+      if (!thread) {
+        return;
+      }
+    }
+
+    const threadId = thread.id;
+    const previousMessages = thread.messages;
+    const userMessage: ChatMessage = { role: "user", content: nextText };
+    const nextMessages = [...previousMessages, userMessage];
+    const nextTitle =
+      previousMessages.some((message) => message.role === "user")
+        ? thread.title
+        : titleFromText(nextText, thread.starterLine);
 
     setComposer("");
     setError(null);
     setNotice(null);
     setIsSending(true);
     startTransition(() => {
-      setMessages(nextMessages.slice(-MAX_VISIBLE_MESSAGES));
+      const placeholderMessage: ChatMessage = {
+        role: "assistant",
+        content: "",
+      };
+
+      updateThreadLocal(threadId, (current) => ({
+        ...current,
+        title: nextTitle,
+        messages: [...nextMessages, placeholderMessage].slice(-MAX_VISIBLE_MESSAGES),
+      }));
     });
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages }),
+        body: JSON.stringify({ messages: nextMessages, mode }),
       });
 
-      const data = (await response.json()) as ChatResponse & { error?: string };
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
 
-      if (!response.ok || !data.message) {
-        throw new Error(data.error ?? "The stable line dropped.");
+        throw new Error(data?.error ?? "The stable line dropped.");
       }
 
-      startTransition(() => {
-        setMessages((current) =>
-          [...current, data.message].slice(-MAX_VISIBLE_MESSAGES),
-        );
+      if (!response.body) {
+        throw new Error("The response stream was empty.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantText = "";
+      let buffer = "";
+
+      const replaceAssistant = (content: string) => {
+        startTransition(() => {
+          updateThreadLocal(threadId, (current) => {
+            const currentMessages = [...current.messages];
+
+            for (let index = currentMessages.length - 1; index >= 0; index -= 1) {
+              if (currentMessages[index]?.role === "assistant") {
+                currentMessages[index] = { role: "assistant", content };
+                break;
+              }
+            }
+
+            return {
+              ...current,
+              title: nextTitle,
+              messages: currentMessages.slice(-MAX_VISIBLE_MESSAGES),
+            };
+          });
+        });
+      };
+
+      const onEvent = (event: ChatStreamEvent) => {
+        if (event.type === "delta") {
+          assistantText += event.delta;
+          replaceAssistant(assistantText);
+        }
+
+        if (event.type === "final") {
+          assistantText = event.content;
+          replaceAssistant(event.content);
+        }
+
+        if (event.type === "notice") {
+          setNotice(event.notice);
+        }
+
+        if (event.type === "error") {
+          throw new Error(event.error);
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        buffer = parseChunk(decoder.decode(value, { stream: true }), onEvent, buffer);
+      }
+
+      const tail = buffer.trim();
+
+      if (tail) {
+        onEvent(JSON.parse(tail) as ChatStreamEvent);
+      }
+
+      const finalAssistantMessage: ChatMessage = {
+        role: "assistant",
+        content: assistantText,
+      };
+      const finalMessages = [
+        ...nextMessages,
+        finalAssistantMessage,
+      ].slice(-MAX_VISIBLE_MESSAGES);
+
+      await persistThread(threadId, {
+        title: nextTitle,
+        mode,
+        messages: finalMessages,
       });
-
-      if (data.blocked && data.reason) {
-        setNotice(`Guardrail: ${data.reason.replaceAll("_", " ")}`);
-      }
     } catch (caughtError) {
       const message =
         caughtError instanceof Error
@@ -159,10 +541,12 @@ export function ChatApp() {
           : "The stable line dropped.";
 
       setError(message);
-      startTransition(() => {
-        setMessages((current) => current.slice(0, -1));
-      });
-      setComposer(nextText);
+      updateThreadLocal(threadId, (current) => ({
+        ...current,
+        messages: previousMessages,
+        title: thread?.title ?? current.title,
+      }));
+      setComposer((current) => current || nextText);
     } finally {
       setIsSending(false);
     }
@@ -197,7 +581,7 @@ export function ChatApp() {
       setComposer((current) =>
         current ? `${current.trimEnd()} ${transcript}` : transcript,
       );
-      setNotice("Voice note added to the composer.");
+      setNotice("Voice note added.");
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -211,13 +595,13 @@ export function ChatApp() {
   }
 
   async function toggleRecording() {
-    if (isTranscribing || isSending) {
+    if (isTranscribing || isSending || isExporting) {
       return;
     }
 
     if (isRecording) {
       recorderRef.current?.stop();
-      setNotice("Finishing the recording...");
+      setNotice("Finishing recording...");
       return;
     }
 
@@ -266,7 +650,7 @@ export function ChatApp() {
       recorder.start();
       setIsRecording(true);
       setError(null);
-      setNotice("Recording... tap again to stop.");
+      setNotice("Recording...");
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -277,12 +661,114 @@ export function ChatApp() {
     }
   }
 
-  function clearChat() {
-    setMessages([]);
+  function switchToThread(thread: ChatThread) {
+    setCurrentChatId(thread.id);
+    setMode(thread.mode);
     setComposer("");
     setError(null);
     setNotice(null);
-    window.localStorage.removeItem(STORAGE_KEY);
+    setStarterFallback(thread.starterLine);
+  }
+
+  function switchMode(nextMode: ChatMode) {
+    if (nextMode === mode) {
+      return;
+    }
+
+    const nextStarterLine =
+      currentThread && currentThread.messages.length === 0
+        ? pickStarterLine(nextMode)
+        : currentThread?.starterLine ?? pickStarterLine(nextMode);
+
+    setMode(nextMode);
+    setStarterFallback(nextStarterLine);
+    setError(null);
+    setNotice(nextMode === "unicorn" ? "Unicorn mode engaged." : "Horse mode engaged.");
+
+    if (nextMode === "unicorn") {
+      setBurstVersion((current) => current + 1);
+    }
+
+    if (!currentThread) {
+      return;
+    }
+
+    updateThreadLocal(currentThread.id, (thread) => ({
+      ...thread,
+      mode: nextMode,
+      starterLine:
+        thread.messages.length === 0 ? nextStarterLine : thread.starterLine,
+      title:
+        thread.messages.length === 0 ? nextStarterLine : thread.title,
+    }));
+
+    void persistThread(currentThread.id, {
+      mode: nextMode,
+      starterLine:
+        currentThread.messages.length === 0 ? nextStarterLine : currentThread.starterLine,
+      title:
+        currentThread.messages.length === 0 ? nextStarterLine : currentThread.title,
+    }).catch(() => {});
+  }
+
+  function openExportDialog() {
+    if (!messages.length) {
+      setNotice("Start a chat first, then export it.");
+      return;
+    }
+
+    setExportEmail("");
+    setIsExportOpen(true);
+    setError(null);
+  }
+
+  async function handleExportSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const trimmedEmail = exportEmail.trim();
+
+    if (!trimmedEmail || isExporting || !currentThread) {
+      return;
+    }
+
+    setIsExporting(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await fetch("/api/export-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          messages,
+          mode,
+        }),
+      });
+
+      const data = (await response.json()) as ExportResponse;
+
+      if (!response.ok || !data.fileName || !data.pdfBase64) {
+        throw new Error(data.error ?? "Unable to export the chat.");
+      }
+
+      triggerPdfDownload(data.fileName, data.pdfBase64);
+      setIsExportOpen(false);
+      setExportEmail("");
+      setNotice(
+        data.sent
+          ? `PDF downloaded and emailed to ${trimmedEmail}.`
+          : data.error ?? "PDF downloaded, but the email did not go out.",
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to export the chat.",
+      );
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -297,118 +783,190 @@ export function ChatApp() {
     }
   }
 
-  const hasMessages = messages.length > 0;
+  const appName = getModeAppName(mode);
+  const starterLine = currentThread?.starterLine ?? starterFallback;
 
   return (
-    <main className="grain flex h-screen w-full flex-1 overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-      <div className="flex h-screen w-full flex-col overflow-hidden xl:grid xl:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="flex flex-col border-b border-[var(--border)] bg-[var(--sidebar)] px-3 py-3 text-[var(--sidebar-foreground)] xl:border-r xl:border-b-0">
+    <main className="grain app-shell min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      {mode === "unicorn" ? (
+        <>
+          <div className="ambient-sparkles">
+            <div className="ambient-rainbow" />
+            {SPARKLE_SEEDS.map((seed, index) => (
+              <span
+                key={`ambient-${index}`}
+                style={
+                  {
+                    "--left": seed.left,
+                    "--top": seed.top,
+                    "--size": seed.size,
+                    "--hue": seed.hue,
+                    "--delay": seed.delay,
+                    "--speed": seed.speed,
+                  } as CSSProperties
+                }
+              />
+            ))}
+          </div>
+          <div key={burstVersion} className="rainbow-burst">
+            {BURST_SEEDS.map((seed, index) => (
+              <span
+                key={`burst-${burstVersion}-${index}`}
+                style={
+                  {
+                    "--left": seed.left,
+                    "--top": seed.top,
+                    "--size": seed.size,
+                    "--hue": seed.hue,
+                    "--delay": seed.delay,
+                    "--drift-x": seed.driftX,
+                    "--drift-y": seed.driftY,
+                  } as CSSProperties
+                }
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      <div className="mx-auto grid min-h-screen w-full max-w-[1440px] grid-cols-1 md:grid-cols-[272px_minmax(0,1fr)]">
+        <aside className="left-rail flex min-h-screen flex-col gap-4 px-3 pb-4 pt-3 sm:px-4">
+          <div className="px-2 text-xl font-semibold tracking-tight">{appName}</div>
+
           <button
             type="button"
-            onClick={clearChat}
-            className="flex items-center gap-3 rounded-xl border border-white/10 px-4 py-4 text-left text-base font-medium transition hover:bg-white/6"
+            onClick={() => void createNewChat(mode)}
+            className="glass-button flex h-11 items-center justify-center rounded-[1rem] px-4 text-sm font-medium"
           >
-            <span className="text-xl leading-none">+</span>
-            <span>New chat</span>
+            New chat
           </button>
 
-          <div className="mt-4 flex-1" />
+          <div className="left-rail-list flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+            {threads.map((thread) => (
+              <button
+                key={thread.id}
+                type="button"
+                onClick={() => switchToThread(thread)}
+                className={`left-rail-chat truncate ${
+                  thread.id === currentChatId ? "left-rail-chat-active" : ""
+                }`}
+              >
+                {thread.title}
+              </button>
+            ))}
+          </div>
 
-          <div className="space-y-2 border-t border-white/10 pt-4 text-sm text-white/80">
-            <button
-              type="button"
-              onClick={clearChat}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-white/5"
-            >
-              <span>⌫</span>
-              <span>Clear conversations</span>
-            </button>
-            <div className="flex items-center gap-3 rounded-lg px-3 py-3">
-              <span>𐂂</span>
-              <span>{APP_NAME}</span>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg px-3 py-3">
-              <span>AI</span>
-              <span>GPT wrapper</span>
+          <div className="space-y-3 pb-1">
+            <div className="mx-auto w-full max-w-[216px] text-center">
+              <div className="sidebar-label mb-1.5 px-1">
+                Change mode
+              </div>
+              <div className="glass-subpanel rounded-[1.5rem] p-3">
+                <div className="emoji-slider">
+                  <span
+                    className={`emoji-slider-thumb ${
+                      mode === "unicorn" ? "translate-x-full" : ""
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => switchMode("horse")}
+                    className="emoji-slider-option"
+                    aria-label="Switch to horse mode"
+                  >
+                    🐴
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchMode("unicorn")}
+                    className="emoji-slider-option"
+                    aria-label="Switch to unicorn mode"
+                  >
+                    🦄
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--panel-strong)]">
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8">
-              {!hasMessages ? (
-                <div className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center py-6 text-center">
-                  <Image
-                    src="/horse.jpeg"
-                    alt="A scrappy horse drawing with a realistic back half and a chaotic front half."
-                    width={739}
-                    height={500}
-                    className="mb-8 w-full max-w-[340px] rounded-2xl border border-[var(--border)] shadow-[0_16px_40px_rgba(64,43,30,0.12)]"
-                    priority
-                  />
-                  <h1 className="text-5xl font-semibold tracking-tight text-[var(--foreground)]">
-                    {APP_NAME}
-                  </h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-7 text-[#7a6353]">
-                    A GPT wrapper that answers like a horse. Same chat pattern,
-                    different hoofwork.
-                  </p>
+        <div className="flex min-h-screen min-w-0 flex-col px-4 pb-4 pt-3 sm:px-6">
+          <header className="flex flex-wrap items-center justify-end gap-2 py-2">
+            <button
+              type="button"
+              onClick={openExportDialog}
+              className="offer-button"
+            >
+              <ExportIcon />
+              <span>Export</span>
+            </button>
+          </header>
 
-                  <div className="mt-10 grid w-full max-w-4xl gap-4 md:grid-cols-3">
-                    {WELCOME_COLUMNS.map((column) => (
-                      <div key={column.title} className="space-y-3">
-                        <h2 className="text-lg font-medium text-[var(--foreground)]">
-                          {column.title}
-                        </h2>
-                        {column.items.map((item) => (
-                          <button
-                            key={item}
-                            type="button"
-                            onClick={() =>
-                              column.interactive ? setComposer(item) : undefined
-                            }
-                            className={`w-full rounded-2xl border border-[var(--border)] bg-[#f7f1ea] px-4 py-3 text-sm leading-6 text-[#3e2b21] transition ${
-                              column.interactive
-                                ? "cursor-pointer hover:bg-[#e6d7ca]"
-                                : "cursor-default"
-                            }`}
-                          >
-                            {item}
-                          </button>
-                        ))}
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 overflow-y-auto px-1 pb-4 pt-6 sm:px-3">
+              {isLoadingChats ? (
+                <div className="mx-auto flex h-full w-full max-w-4xl items-center justify-center text-center text-sm text-[var(--muted)]">
+                  Saddling up your chats...
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="mx-auto flex h-full w-full max-w-4xl flex-col items-center justify-center text-center">
+                  <div className="hero-orb">
+                    {mode === "horse" ? (
+                      <Image
+                        src="/horse.jpeg"
+                        alt={appName}
+                        width={280}
+                        height={190}
+                        className="h-[170px] w-[250px] rounded-[1.8rem] object-cover"
+                        priority
+                      />
+                    ) : (
+                      <div className="flex h-[170px] w-[250px] items-center justify-center rounded-[1.8rem] text-[5.5rem]">
+                        🦄
                       </div>
+                    )}
+                  </div>
+                  <h1 className="mt-8 text-5xl font-semibold tracking-tight sm:text-6xl">
+                    {starterLine}
+                  </h1>
+                  <div className="mt-8 flex flex-wrap justify-center gap-3">
+                    {SUGGESTIONS[mode].map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => setComposer(suggestion)}
+                        className="glass-chip"
+                      >
+                        {suggestion}
+                      </button>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="mx-auto flex w-full max-w-3xl flex-col space-y-6 pb-10">
+                <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-6 pt-2">
                   {messages.map((message, index) => {
                     const isAssistant = message.role === "assistant";
+                    const isLive = isAssistant && isSending && index === messages.length - 1;
 
                     return (
                       <article
-                        key={`${message.role}-${index}-${message.content.slice(0, 16)}`}
+                        key={`${message.role}-${index}-${message.content.slice(0, 24)}`}
                         className={`message-rise flex ${
                           isAssistant ? "justify-start" : "justify-end"
                         }`}
                       >
                         <div
-                          className={`max-w-[85%] rounded-3xl px-5 py-4 ${
-                            isAssistant
-                              ? "border border-[var(--border)] bg-[#ede4da] text-[var(--foreground)]"
-                              : "bg-[#8a5a3c] text-[#fff8f2]"
+                          className={`chat-bubble ${
+                            isAssistant ? "chat-bubble-assistant" : "chat-bubble-user"
                           }`}
                         >
-                          <div
-                            className={`mb-2 text-[11px] uppercase tracking-[0.18em] ${
-                              isAssistant ? "text-[#836958]" : "text-[#f0ddd0]"
+                          <p
+                            className={`whitespace-pre-wrap text-[15px] leading-7 sm:text-base ${
+                              mode === "unicorn" && isAssistant ? "rainbow-text" : ""
                             }`}
                           >
-                            {isAssistant ? HORSE_NAME : "You"}
-                          </div>
-                          <p className="whitespace-pre-wrap text-[15px] leading-7">
                             {message.content}
+                            {isLive ? <span className="stream-cursor" /> : null}
                           </p>
                         </div>
                       </article>
@@ -419,63 +977,85 @@ export function ChatApp() {
               )}
             </div>
 
-            <div className="border-t border-[var(--border)] bg-[var(--panel-strong)] px-4 py-3 sm:px-6">
+            <div className="px-1 pb-4 pt-2 sm:px-3">
               <div className="mx-auto w-full max-w-3xl">
-                <div className="mb-3 flex min-h-6 flex-wrap items-center gap-3 text-sm">
-                  {notice ? (
-                    <span className="rounded-full border border-[#b8c6af] bg-[#edf2e8] px-3 py-1 text-[#4c5c3f]">
-                      {notice}
-                    </span>
-                  ) : null}
-                  {error ? (
-                    <span className="rounded-full border border-[#d8bbb0] bg-[#f8eae5] px-3 py-1 text-[#8c3f2e]">
-                      {error}
-                    </span>
-                  ) : null}
+                <div className="mb-3 flex min-h-6 flex-wrap items-center gap-2 text-sm">
+                  {notice ? <span className="status-pill status-pill-notice">{notice}</span> : null}
+                  {error ? <span className="status-pill status-pill-error">{error}</span> : null}
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-3">
-                  <div className="rounded-[1.4rem] border border-[var(--border)] bg-[#fffaf5] px-4 py-3 shadow-[0_8px_30px_rgba(64,43,30,0.08)]">
-                    <textarea
-                      value={composer}
-                      onChange={(event) => setComposer(event.target.value)}
-                      onKeyDown={handleComposerKeyDown}
-                      placeholder={`Message ${APP_NAME}`}
-                      rows={3}
-                      disabled={isSending}
-                      className="min-h-16 w-full resize-none bg-transparent text-[15px] leading-7 text-[var(--foreground)] outline-none placeholder:text-[#9b8170]"
-                    />
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={toggleRecording}
-                        disabled={isSending || isTranscribing}
-                        className="rounded-full border border-[var(--border)] px-3 py-2 text-sm text-[#6d5445] transition hover:bg-[#f4ece4] disabled:cursor-not-allowed disabled:opacity-55"
-                      >
-                        {isTranscribing
-                          ? "Transcribing..."
-                          : isRecording
-                            ? "Stop recording"
-                            : "Voice input"}
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSending || !composer.trim()}
-                        className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[#fff8f2] transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-55"
-                      >
-                        {isSending ? "Generating..." : "Send"}
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-center text-xs leading-6 text-[#8b7364]">
-                    HorseGPT is a GPT wrapper with a horse system prompt and
-                    guardrails. It can still make mistakes.
-                  </p>
+                <form onSubmit={handleSubmit} className="glass-composer">
+                  <button
+                    type="button"
+                    onClick={toggleRecording}
+                    disabled={isSending || isTranscribing || isExporting}
+                    className="icon-button"
+                    aria-label="Record voice input"
+                  >
+                    <MicIcon />
+                  </button>
+                  <textarea
+                    ref={textareaRef}
+                    value={composer}
+                    onChange={(event) => setComposer(event.target.value)}
+                    onKeyDown={handleComposerKeyDown}
+                    placeholder={`Message ${appName}`}
+                    rows={1}
+                    disabled={isExporting || isLoadingChats}
+                    className="composer-textarea"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSending || isExporting || isLoadingChats || !composer.trim()}
+                    className="send-button"
+                    aria-label="Send message"
+                  >
+                    <ArrowUpIcon />
+                  </button>
                 </form>
               </div>
             </div>
           </div>
-        </section>
+        </div>
       </div>
+
+      {isExportOpen ? (
+        <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="glass-modal w-full max-w-md rounded-[2rem] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  {`Email this ${appName} chat`}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsExportOpen(false)}
+                className="glass-button rounded-[1rem] px-3 py-1.5 text-sm"
+              >
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={handleExportSubmit} className="mt-5 space-y-4">
+              <input
+                type="email"
+                value={exportEmail}
+                onChange={(event) => setExportEmail(event.target.value)}
+                placeholder="founder@megathon.eu"
+                autoFocus
+                className="glass-input"
+              />
+              <button
+                type="submit"
+                disabled={isExporting || !exportEmail.trim()}
+                className="send-export-button"
+              >
+                {isExporting ? "Packaging..." : "Send PDF"}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

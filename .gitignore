@@ -211,3 +211,6 @@ results/
 !data/.gitkeep
 !models/.gitkeep
 !logs/.gitkeep
+
+# Separate project, not part of this repo
+AgnesTheSecond/

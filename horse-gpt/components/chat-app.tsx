@@ -1130,6 +1130,10 @@ export function ChatApp() {
               <ExportIcon />
               <span>Export</span>
             </button>
+            <a href="/cube" className="offer-button">
+              <MicIcon />
+              <span>Voice</span>
+            </a>
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col">

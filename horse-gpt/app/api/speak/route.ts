@@ -5,32 +5,68 @@ import { normalizeMode } from "@/lib/horse";
 
 export const runtime = "nodejs";
 
-const MAX_TTS_CHARS = 1200;
+const MAX_TTS_CHARS = 2500;
 
 export async function POST(request: Request) {
   try {
-    const client = getOpenAIClient();
-
-    if (!client) {
-      return NextResponse.json(
-        { error: "OPENAI_KEY is not configured." },
-        { status: 503 },
-      );
-    }
-
     const body = (await request.json()) as { text?: unknown; mode?: unknown };
     const text =
       typeof body.text === "string" ? body.text.trim().slice(0, MAX_TTS_CHARS) : "";
     const mode = normalizeMode(body.mode);
 
     if (!text) {
+      return NextResponse.json({ error: "Text is required." }, { status: 400 });
+    }
+
+    const elevenKey = process.env.ELEVENLABS_API_KEY ?? "";
+    const voiceId = process.env.ELEVENLABS_VOICE_ID ?? "";
+
+    // Prefer ElevenLabs when configured.
+    if (elevenKey && voiceId) {
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "xi-api-key": elevenKey,
+          },
+          body: JSON.stringify({
+            text,
+            model_id: "eleven_multilingual_v2",
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+              style: 0.3,
+              use_speaker_boost: true,
+            },
+          }),
+        },
+      );
+
+      if (response.ok && response.body) {
+        const buffer = Buffer.from(await response.arrayBuffer());
+
+        return new Response(buffer, {
+          headers: {
+            "Content-Type": "audio/mpeg",
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+
+      // Fall through to OpenAI TTS if ElevenLabs failed.
+    }
+
+    const client = getOpenAIClient();
+
+    if (!client) {
       return NextResponse.json(
-        { error: "Text is required." },
-        { status: 400 },
+        { error: "No TTS provider configured (set ELEVENLABS_API_KEY or OPENAI_KEY)." },
+        { status: 503 },
       );
     }
 
-    // A brighter voice for unicorn mode, a grounded one for horse mode.
     const voice =
       process.env.OPENAI_TTS_VOICE ?? (mode === "unicorn" ? "nova" : "onyx");
 

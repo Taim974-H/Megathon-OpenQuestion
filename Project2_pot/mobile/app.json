@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "Pothole Tracker",
+    "slug": "pothole-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F0F0F"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.megathon.potholetracker",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "audio",
+          "fetch"
+        ],
+        "NSLocationWhenInUseUsageDescription": "Pothole Tracker needs your location to detect potholes and warn you of upcoming hazards.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Pothole Tracker needs background location access to monitor for potholes while you drive.",
+        "NSLocationAlwaysUsageDescription": "Pothole Tracker needs background location access to monitor for potholes while you drive.",
+        "NSMotionUsageDescription": "Pothole Tracker uses the accelerometer to detect road potholes."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F0F0F"
+      },
+      "package": "com.megathon.potholetracker",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Pothole Tracker needs background location access to monitor for potholes while you drive.",
+          "locationAlwaysPermission": "Pothole Tracker needs background location access to monitor for potholes while you drive.",
+          "locationWhenInUsePermission": "Pothole Tracker needs your location to detect and warn about potholes.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
+        }
+      ]
+    ]
+  }
+}

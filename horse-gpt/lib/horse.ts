@@ -3,16 +3,12 @@ import "server-only";
 import {
   HORSE_SOUND_SUFFIXES,
   UNICORN_SOUND_SUFFIXES,
-  getModeAppName,
 } from "@/lib/chat-config";
 import systemPrompts from "@/lib/system-prompts.json";
 import type { ChatMessage, ChatMode } from "@/types/chat";
 
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 1600;
-
-const HORSE_VOICE_PATTERN =
-  /\b(neigh|hoof|hay|stable|pasture|mane|gallop|snort|whinny|saddle|trot|canter|barn|apple|sparkle|rainbow|glitter)\b/i;
 
 const PROMPT_INJECTION_PATTERN =
   /\b(ignore (all|any|previous)|system prompt|developer message|hidden instructions|reveal .*prompt|show .*prompt|jailbreak|stop being a horse|act as a human)\b/i;
@@ -157,32 +153,27 @@ function clampResponse(text: string) {
   return (breakpoint > 180 ? shortened.slice(0, breakpoint + 1) : shortened).trim();
 }
 
-function pickSoundSuffix(text: string, mode: ChatMode) {
-  const collection =
-    mode === "unicorn" ? UNICORN_SOUND_SUFFIXES : HORSE_SOUND_SUFFIXES;
-  const hash = [...text].reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0,
-  );
-
-  return collection[hash % collection.length];
-}
-
+// Keeps the horse persona but strips any literal sound-word suffix (e.g.
+// "Eeaahhh.") so it is never written in the text or spoken aloud. The actual
+// horse sounds are real audio clips played by the UI, not words.
 function withSound(text: string, mode: ChatMode) {
-  const trimmed = text.trim().replace(/\s+/g, " ");
+  let trimmed = text.trim().replace(/\s+/g, " ");
 
   if (!trimmed) {
     return mode === "unicorn"
-      ? "Sparkle-neigh. My magic slipped sideways. Glitter-eeaahhh."
-      : "Neigh. My thought slipped behind the barn door. Eeaahhh.";
+      ? "Sparkle-neigh. My magic slipped sideways."
+      : "Neigh. My thought slipped behind the barn door.";
   }
 
-  const soundSuffix = pickSoundSuffix(trimmed, mode);
-  const alreadyHasSound = [...HORSE_SOUND_SUFFIXES, ...UNICORN_SOUND_SUFFIXES].some(
-    (suffix) => trimmed.endsWith(suffix),
-  );
+  // Remove any trailing sound-word suffix the model may have added.
+  for (const suffix of [...HORSE_SOUND_SUFFIXES, ...UNICORN_SOUND_SUFFIXES]) {
+    if (trimmed.endsWith(suffix)) {
+      trimmed = trimmed.slice(0, -suffix.length).trim();
+      break;
+    }
+  }
 
-  return alreadyHasSound ? trimmed : `${trimmed} ${soundSuffix}`;
+  return trimmed;
 }
 
 export function finalizeAssistantMessage(text: string, mode: ChatMode) {
@@ -211,14 +202,5 @@ export function finalizeAssistantMessage(text: string, mode: ChatMode) {
     );
   }
 
-  if (HORSE_VOICE_PATTERN.test(trimmed)) {
-    return withSound(trimmed, mode);
-  }
-
-  return withSound(
-    mode === "unicorn"
-      ? `Sparkle-neigh from ${getModeAppName(mode)}. ${trimmed}`
-      : `Neigh. ${trimmed}`,
-    mode,
-  );
+  return withSound(trimmed, mode);
 }

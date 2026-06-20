@@ -1181,6 +1181,14 @@ export function ChatApp() {
               >
                 <ExportIcon />
               </button>
+              <a
+                href="/cube"
+                className="header-control-button"
+                aria-label="Open conversation mode"
+                title="Conversation"
+              >
+                <MicIcon />
+              </a>
             </div>
           </header>
 

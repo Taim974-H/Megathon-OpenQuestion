@@ -9,7 +9,7 @@ const VoiceCube = dynamic(
 
 export default function CubePage() {
   return (
-    <main className="grain min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="grain h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       <VoiceCube />
     </main>
   );

@@ -1148,39 +1148,39 @@ export function ChatApp() {
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-2">
-            {isSpeaking ? (
+              {isSpeaking ? (
+                <button
+                  type="button"
+                  onClick={stopSpeaking}
+                  className="header-control-button"
+                  aria-label="Stop the spoken reply"
+                  title="Stop speaking"
+                >
+                  <SoundOffIcon />
+                </button>
+              ) : null}
               <button
                 type="button"
-                onClick={stopSpeaking}
+                onClick={() => {
+                  setIsSoundOn((current) => !current);
+                  stopSpeaking();
+                }}
                 className="header-control-button"
-                aria-label="Stop the spoken reply"
-                title="Stop speaking"
+                aria-pressed={isSoundOn}
+                aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
+                title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
               >
-                <SoundOffIcon />
+                {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => {
-                setIsSoundOn((current) => !current);
-                stopSpeaking();
-              }}
-              className="header-control-button"
-              aria-pressed={isSoundOn}
-              aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
-              title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
-            >
-              {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
-            </button>
-            <button
-              type="button"
-              onClick={openExportDialog}
-              className="header-control-button"
-              aria-label="Export transcript"
-              title="Export"
-            >
-              <ExportIcon />
-            </button>
+              <button
+                type="button"
+                onClick={openExportDialog}
+                className="header-control-button"
+                aria-label="Export transcript"
+                title="Export"
+              >
+                <ExportIcon />
+              </button>
             </div>
           </header>
 

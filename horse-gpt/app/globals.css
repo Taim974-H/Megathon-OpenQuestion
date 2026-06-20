@@ -72,7 +72,8 @@ html {
 }
 
 body {
-  height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow: hidden;
   background:
     var(--hero-glow),
@@ -231,6 +232,7 @@ input {
 .glass-button,
 .glass-chip,
 .offer-button,
+.header-control-button,
 .icon-button,
 .send-button,
 .send-export-button,
@@ -342,6 +344,36 @@ input {
 .offer-button:hover {
   transform: translateY(-1px);
   background: var(--surface-strong);
+}
+
+.header-control-button {
+  display: inline-flex;
+  height: 2.9rem;
+  width: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  color: var(--accent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.55)),
+    var(--surface-strong);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 8px 20px rgba(30, 18, 12, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.header-control-button:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.62)),
+    var(--surface-strong);
 }
 
 .hero-orb {
@@ -715,9 +747,12 @@ input {
 
 @media (max-width: 767px) {
   .left-rail {
-    min-height: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
+    min-height: 100dvh;
+    border-right: 1px solid var(--border);
+    border-bottom: 0;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.56), transparent 24%),
+      var(--surface-sidebar);
   }
 
   .glass-panel {
@@ -725,10 +760,34 @@ input {
   }
 
   .chat-bubble {
-    max-width: 100%;
+    max-width: 92%;
+    border-radius: 1.45rem;
+    padding: 0.95rem 1rem;
   }
 
   .glass-composer {
     grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    border-radius: 1.5rem;
+    padding: 0.7rem;
+  }
+
+  .offer-button {
+    padding: 0.6rem 0.78rem;
+  }
+
+  .header-control-button {
+    height: 3rem;
+    width: 3rem;
+    border-radius: 1rem;
+  }
+
+  .left-rail-delete {
+    opacity: 1;
+  }
+
+  .status-pill {
+    width: 100%;
+    text-align: center;
   }
 }

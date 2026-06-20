@@ -1164,7 +1164,6 @@ export function ChatApp() {
                     aria-label="Stop the spoken reply"
                     title="Stop speaking"
                   >
-                    <SoundOffIcon />
                     <span>Stop voice</span>
                   </button>
                 </>
@@ -1193,7 +1192,6 @@ export function ChatApp() {
                 aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
                 title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
               >
-                {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
                 <span>{isSoundOn ? "Sound on" : "Sound off"}</span>
               </button>
               <button
@@ -1210,7 +1208,6 @@ export function ChatApp() {
                 onClick={openExportDialog}
                 className="offer-button max-md:hidden"
               >
-                <ExportIcon />
                 <span>Export</span>
               </button>
               <a
@@ -1222,7 +1219,6 @@ export function ChatApp() {
                 <MicIcon />
               </a>
               <a href="/cube" className="header-cta-button max-md:hidden">
-                <MicIcon />
                 <span>Conversation</span>
               </a>
             </div>

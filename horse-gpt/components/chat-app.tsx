@@ -1036,7 +1036,7 @@ export function ChatApp() {
         </>
       ) : null}
 
-      <div className="mx-auto grid h-[100dvh] w-full max-w-[1440px] grid-cols-1 overflow-hidden md:grid-cols-[272px_minmax(0,1fr)]">
+      <div className="mx-auto grid h-[100dvh] w-full max-w-[1440px] grid-cols-1 overflow-hidden md:grid-cols-[228px_minmax(0,1fr)] lg:grid-cols-[256px_minmax(0,1fr)] xl:grid-cols-[272px_minmax(0,1fr)]">
         {isMobileNavOpen ? (
           <button
             type="button"
@@ -1096,35 +1096,33 @@ export function ChatApp() {
             ))}
           </div>
 
-          <div className="space-y-3 pb-1">
-            <div className="mx-auto w-full max-w-[216px] text-center">
-              <div className="sidebar-label mb-1.5 px-1">
-                Change mode
-              </div>
-              <div className="glass-subpanel rounded-[1.5rem] p-3">
-                <div className="emoji-slider">
-                  <span
-                    className={`emoji-slider-thumb ${
-                      mode === "unicorn" ? "translate-x-full" : ""
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => switchMode("horse")}
-                    className="emoji-slider-option"
-                    aria-label="Switch to horse mode"
-                  >
-                    🐴
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => switchMode("unicorn")}
-                    className="emoji-slider-option"
-                    aria-label="Switch to unicorn mode"
-                  >
-                    🦄
-                  </button>
-                </div>
+          <div className="mx-auto w-full max-w-[216px] text-center">
+            <div className="sidebar-label mb-1.5 px-1">
+              Change mode
+            </div>
+            <div className="glass-subpanel rounded-[1.5rem] p-3">
+              <div className="emoji-slider">
+                <span
+                  className={`emoji-slider-thumb ${
+                    mode === "unicorn" ? "translate-x-full" : ""
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => switchMode("horse")}
+                  className="emoji-slider-option"
+                  aria-label="Switch to horse mode"
+                >
+                  🐴
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode("unicorn")}
+                  className="emoji-slider-option"
+                  aria-label="Switch to unicorn mode"
+                >
+                  🦄
+                </button>
               </div>
             </div>
           </div>
@@ -1217,13 +1215,13 @@ export function ChatApp() {
               </button>
               <a
                 href="/cube"
-                className="header-control-button md:hidden"
+                className="header-cta-button header-cta-icon md:hidden"
                 aria-label="Open conversation mode"
                 title="Conversation"
               >
                 <MicIcon />
               </a>
-              <a href="/cube" className="offer-button max-md:hidden">
+              <a href="/cube" className="header-cta-button max-md:hidden">
                 <MicIcon />
                 <span>Conversation</span>
               </a>
@@ -1237,7 +1235,7 @@ export function ChatApp() {
                   Saddling up your chats...
                 </div>
               ) : messages.length === 0 ? (
-                <div className="mx-auto flex h-full w-full max-w-4xl flex-col items-center justify-center gap-[clamp(0.75rem,2.5vh,1.5rem)] overflow-hidden py-2 text-center">
+                <div className="mx-auto flex h-full w-full max-w-2xl flex-col items-center justify-center gap-[clamp(1rem,3vh,2rem)] overflow-hidden py-2 text-center">
                   <div className="hero-orb shrink-0">
                     {mode === "horse" ? (
                       <Image
@@ -1245,19 +1243,24 @@ export function ChatApp() {
                         alt={appName}
                         width={280}
                         height={190}
-                        className="h-[170px] w-[250px] rounded-[1.8rem] object-cover"
+                        className="h-[clamp(116px,18vh,160px)] w-[clamp(170px,26vh,236px)] rounded-[1.6rem] object-cover"
                         priority
                       />
                     ) : (
-                      <div className="flex h-[170px] w-[250px] items-center justify-center rounded-[1.8rem] text-[5.5rem]">
+                      <div className="flex h-[clamp(116px,18vh,160px)] w-[clamp(170px,26vh,236px)] items-center justify-center rounded-[1.6rem] text-[clamp(3.5rem,9vh,5rem)]">
                         🦄
                       </div>
                     )}
                   </div>
-                  <h1 className="mt-8 text-5xl font-semibold tracking-tight sm:text-6xl">
-                    {starterLine}
-                  </h1>
-                  <div className="mt-8 flex flex-wrap justify-center gap-3">
+                  <div className="flex flex-col items-center gap-2">
+                    <h1 className="text-[clamp(2rem,5.5vw,3.25rem)] font-semibold leading-[1.05] tracking-tight">
+                      {starterLine}
+                    </h1>
+                    <p className="text-sm text-[var(--muted)] sm:text-[0.95rem]">
+                      Pick a starter below or just start typing.
+                    </p>
+                  </div>
+                  <div className="flex w-full flex-wrap justify-center gap-2.5">
                     {SUGGESTIONS[mode].map((suggestion) => (
                       <button
                         key={suggestion}

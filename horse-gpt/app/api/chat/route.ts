@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     const response = await client.responses.create({
-      model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+      model: process.env.OPENAI_MODEL ?? "gpt-4.1-nano",
       instructions: HORSE_SYSTEM_PROMPT,
       input: buildModelInput(messages),
       max_output_tokens: 280,

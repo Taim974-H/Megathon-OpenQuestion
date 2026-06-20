@@ -1274,12 +1274,14 @@ export function ChatApp() {
               )}
             </div>
 
-            <div className="shrink-0 px-1 pb-2 pt-2 sm:px-3 sm:pb-4">
+            <div className="shrink-0 px-1 pb-2 pt-1 sm:px-3">
               <div className="mx-auto w-full max-w-3xl">
-                <div className="mb-3 flex min-h-6 flex-wrap items-center gap-2 text-sm">
-                  {notice ? <span className="status-pill status-pill-notice">{notice}</span> : null}
-                  {error ? <span className="status-pill status-pill-error">{error}</span> : null}
-                </div>
+                {notice || error ? (
+                  <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+                    {notice ? <span className="status-pill status-pill-notice">{notice}</span> : null}
+                    {error ? <span className="status-pill status-pill-error">{error}</span> : null}
+                  </div>
+                ) : null}
                 <form onSubmit={handleSubmit} className="glass-composer">
                   <button
                     type="button"

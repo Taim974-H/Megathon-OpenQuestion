@@ -879,14 +879,13 @@ export function ChatApp() {
     setError(null);
     setNotice(null);
 
-    // If the open chat was deleted, fall back to another or start fresh.
-    if (currentChatId === threadId) {
-      if (remaining.length > 0) {
-        switchToThread(remaining[0]);
-      } else {
-        setCurrentChatId(null);
-        void createNewChat(mode);
-      }
+    const wasActive = currentChatId === threadId;
+
+    // If the open chat was deleted and another exists, switch to it now.
+    if (wasActive && remaining.length > 0) {
+      switchToThread(remaining[0]);
+    } else if (wasActive) {
+      setCurrentChatId(null);
     }
 
     try {
@@ -900,6 +899,12 @@ export function ChatApp() {
         } | null;
 
         throw new Error(data?.error ?? "Unable to delete the chat.");
+      }
+
+      // Only start a fresh chat after the delete has fully committed, so the
+      // two writes never race on the store file.
+      if (wasActive && remaining.length === 0) {
+        await createNewChat(mode);
       }
     } catch (caughtError) {
       setError(

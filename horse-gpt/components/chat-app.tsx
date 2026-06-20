@@ -1138,7 +1138,7 @@ export function ChatApp() {
         </aside>
 
         <div className="flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:pb-4 md:pt-3">
-          <header className="flex items-center justify-between gap-2 py-2">
+          <header className="flex shrink-0 items-center justify-between gap-2 py-2">
             <div className="flex min-w-0 items-center gap-2 md:hidden">
               <button
                 type="button"
@@ -1206,27 +1206,27 @@ export function ChatApp() {
                   Saddling up your chats...
                 </div>
               ) : messages.length === 0 ? (
-                <div className="mx-auto flex h-full w-full max-w-4xl flex-col items-center justify-center text-center">
-                  <div className="hero-orb">
+                <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col items-center justify-center gap-5 py-4 text-center sm:gap-6">
+                  <div className="hero-orb shrink-0">
                     {mode === "horse" ? (
                       <Image
                         src="/horse.jpeg"
                         alt={appName}
                         width={280}
                         height={190}
-                        className="h-[150px] w-[220px] rounded-[1.6rem] object-cover sm:h-[170px] sm:w-[250px] sm:rounded-[1.8rem]"
+                        className="h-[clamp(110px,18vh,170px)] w-auto rounded-[1.6rem] object-cover sm:rounded-[1.8rem]"
                         priority
                       />
                     ) : (
-                      <div className="flex h-[150px] w-[220px] items-center justify-center rounded-[1.6rem] text-[4.8rem] sm:h-[170px] sm:w-[250px] sm:rounded-[1.8rem] sm:text-[5.5rem]">
+                      <div className="flex h-[clamp(110px,18vh,170px)] w-[clamp(160px,26vh,250px)] items-center justify-center rounded-[1.6rem] text-[clamp(3.5rem,9vh,5.5rem)] sm:rounded-[1.8rem]">
                         🦄
                       </div>
                     )}
                   </div>
-                  <h1 className="mt-6 text-4xl font-semibold tracking-tight sm:mt-8 sm:text-5xl md:text-6xl">
+                  <h1 className="px-2 text-[clamp(1.9rem,5vw,3.75rem)] font-semibold leading-tight tracking-tight">
                     {starterLine}
                   </h1>
-                  <div className="mt-6 flex w-full max-w-xl flex-wrap justify-center gap-3 sm:mt-8">
+                  <div className="flex w-full max-w-xl flex-wrap justify-center gap-3">
                     {SUGGESTIONS[mode].map((suggestion) => (
                       <button
                         key={suggestion}
@@ -1274,7 +1274,7 @@ export function ChatApp() {
               )}
             </div>
 
-            <div className="px-1 pb-2 pt-2 sm:px-3 sm:pb-4">
+            <div className="shrink-0 px-1 pb-2 pt-2 sm:px-3 sm:pb-4">
               <div className="mx-auto w-full max-w-3xl">
                 <div className="mb-3 flex min-h-6 flex-wrap items-center gap-2 text-sm">
                   {notice ? <span className="status-pill status-pill-notice">{notice}</span> : null}

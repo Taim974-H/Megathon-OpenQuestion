@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
     const transcription = await client.audio.transcriptions.create({
       file: audio,
-      model: process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-4o-mini-transcribe",
+      model: process.env.OPENAI_TRANSCRIBE_MODEL ?? "whisper-1",
     });
 
     return NextResponse.json({ text: transcription.text.trim() });

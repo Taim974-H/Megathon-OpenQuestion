@@ -99,6 +99,25 @@ function MicIcon() {
   );
 }
 
+function SoundOnIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" strokeLinejoin="round" />
+      <path d="M16.5 8.5a5 5 0 0 1 0 7" strokeLinecap="round" />
+      <path d="M19 6a8 8 0 0 1 0 12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SoundOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" strokeLinejoin="round" />
+      <path d="m17 9 4 6M21 9l-4 6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function ArrowUpIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -134,6 +153,20 @@ function titleFromText(text: string, fallback: string) {
   }
 
   return trimmed.length > 52 ? `${trimmed.slice(0, 52).trimEnd()}...` : trimmed;
+}
+
+const HORSE_SOUNDS = Array.from(
+  { length: 8 },
+  (_, index) => `/sounds/horse-${index + 1}.mp3`,
+);
+const SOUND_STORAGE_KEY = "horsegpt-sound-on";
+
+function readSoundPreference() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.localStorage.getItem(SOUND_STORAGE_KEY) !== "off";
 }
 
 function triggerPdfDownload(fileName: string, pdfBase64: string) {
@@ -195,6 +228,9 @@ export function ChatApp() {
   const [isExporting, setIsExporting] = useState(false);
   const [isLoadingChats, setIsLoadingChats] = useState(true);
   const [burstVersion, setBurstVersion] = useState(0);
+  const [isSoundOn, setIsSoundOn] = useState(readSoundPreference);
+  const isSoundOnRef = useRef(isSoundOn);
+  const soundCacheRef = useRef<Record<string, HTMLAudioElement>>({});
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -278,6 +314,46 @@ export function ChatApp() {
     window.localStorage.setItem(MODE_STORAGE_KEY, mode);
     document.documentElement.dataset.mode = mode;
   }, [mode]);
+
+  useEffect(() => {
+    isSoundOnRef.current = isSoundOn;
+    window.localStorage.setItem(SOUND_STORAGE_KEY, isSoundOn ? "on" : "off");
+  }, [isSoundOn]);
+
+  // Play a random horse clip from the pool and resolve once it finishes (or
+  // immediately if sound is off / playback is blocked). Used to bookend each
+  // assistant response so every send sounds a little different.
+  function playHorseSound() {
+    if (!isSoundOnRef.current || typeof Audio === "undefined") {
+      return Promise.resolve();
+    }
+
+    const src = pickRandom(HORSE_SOUNDS);
+    let audio = soundCacheRef.current[src];
+
+    if (!audio) {
+      audio = new Audio(src);
+      audio.preload = "auto";
+      soundCacheRef.current[src] = audio;
+    }
+
+    return new Promise<void>((resolve) => {
+      const done = () => {
+        audio.removeEventListener("ended", done);
+        audio.removeEventListener("error", done);
+        resolve();
+      };
+
+      audio.addEventListener("ended", done);
+      audio.addEventListener("error", done);
+      audio.currentTime = 0;
+      const played = audio.play();
+
+      if (played && typeof played.catch === "function") {
+        played.catch(() => done());
+      }
+    });
+  }
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -439,6 +515,9 @@ export function ChatApp() {
       }));
     });
 
+    // Random whinny before the text starts streaming in.
+    await playHorseSound();
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -493,6 +572,8 @@ export function ChatApp() {
         if (event.type === "final") {
           assistantText = event.content;
           replaceAssistant(event.content);
+          // Another random whinny once the full response has landed.
+          void playHorseSound();
         }
 
         if (event.type === "notice") {
@@ -892,6 +973,17 @@ export function ChatApp() {
 
         <div className="flex min-h-screen min-w-0 flex-col px-4 pb-4 pt-3 sm:px-6">
           <header className="flex flex-wrap items-center justify-end gap-2 py-2">
+            <button
+              type="button"
+              onClick={() => setIsSoundOn((current) => !current)}
+              className="offer-button"
+              aria-pressed={isSoundOn}
+              aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
+              title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
+            >
+              {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
+              <span>{isSoundOn ? "Sound on" : "Sound off"}</span>
+            </button>
             <button
               type="button"
               onClick={openExportDialog}

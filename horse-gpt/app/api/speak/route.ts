@@ -7,6 +7,10 @@ export const runtime = "nodejs";
 
 const MAX_TTS_CHARS = 2500;
 
+// The horse's ElevenLabs voice. Overridable via env, but defaults to this id
+// so TTS works without extra configuration.
+const DEFAULT_ELEVENLABS_VOICE_ID = "EAbChaVRdtypK7csJZMT";
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { text?: unknown; mode?: unknown };
@@ -19,7 +23,8 @@ export async function POST(request: Request) {
     }
 
     const elevenKey = process.env.ELEVENLABS_API_KEY ?? "";
-    const voiceId = process.env.ELEVENLABS_VOICE_ID ?? "";
+    const voiceId =
+      process.env.ELEVENLABS_VOICE_ID || DEFAULT_ELEVENLABS_VOICE_ID;
 
     // Prefer ElevenLabs when configured.
     if (elevenKey && voiceId) {

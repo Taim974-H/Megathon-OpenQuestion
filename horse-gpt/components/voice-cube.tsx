@@ -7,9 +7,15 @@ import type { ChatMessage, ChatMode } from "@/types/chat";
 
 type CubeState = "" | "listening" | "thinking" | "speaking";
 
-const HORSE_SOUNDS = Array.from(
-  { length: 8 },
-  (_, index) => `/sounds/horse-${index + 1}.mp3`,
+// Short whinnies (≤2s) to bracket the start of a turn, and longer 3–4s horse
+// noises played once the reply has been spoken.
+const HORSE_START_SOUNDS = Array.from(
+  { length: 7 },
+  (_, index) => `/sounds/start-${index + 1}.mp3`,
+);
+const HORSE_END_SOUNDS = Array.from(
+  { length: 6 },
+  (_, index) => `/sounds/end-${index + 1}.mp3`,
 );
 const MODE_STORAGE_KEY = "horsegpt-chat-mode";
 // Stop a recording turn once the mic has been quiet for this long.
@@ -60,12 +66,13 @@ export function VoiceCube() {
     setStatusLabel(next ? next.toUpperCase() : "IDLE");
   }, []);
 
-  // ── Play a random horse clip, resolve when it finishes ──
-  const playHorseSound = useCallback(() => {
+  // ── Play a random horse clip from the start/end pool, resolve when done ──
+  const playHorseSound = useCallback((phase: "start" | "end" = "start") => {
     if (typeof Audio === "undefined") {
       return Promise.resolve();
     }
-    const src = pickRandom(HORSE_SOUNDS);
+    const pool = phase === "end" ? HORSE_END_SOUNDS : HORSE_START_SOUNDS;
+    const src = pickRandom(pool);
     let audio = soundCacheRef.current[src];
     if (!audio) {
       audio = new Audio(src);
@@ -324,8 +331,8 @@ export function VoiceCube() {
       await speak(reply);
       if (!convoModeRef.current) return;
 
-      // 5. Random horse sound AFTER the speech.
-      await playHorseSound();
+      // 5. Longer 3–4s horse noise AFTER the speech.
+      await playHorseSound("end");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setState("");
@@ -383,25 +390,70 @@ export function VoiceCube() {
     };
   }, [stopEverything]);
 
-  const cubeFaces = [
-    "face-front",
-    "face-back",
-    "face-left",
-    "face-right",
-    "face-top",
-    "face-bottom",
-  ];
-
   return (
     <div className="cube-wrap">
       <div className={`ambient-glow ${cubeState}`} />
 
-      <div className="cube-stage">
-        <div className={`cube ${cubeState === "speaking" ? "speaking" : ""}`}>
-          {cubeFaces.map((face) => (
-            <div key={face} className={`cube-face ${face}`} />
-          ))}
-        </div>
+      <div className="horse-stage">
+        <svg
+          className={`horse ${cubeState}`}
+          viewBox="0 0 200 200"
+          role="img"
+          aria-label="HorseGPT"
+        >
+          {/* Soft shadow under the horse */}
+          <ellipse className="horse-shadow" cx="100" cy="182" rx="46" ry="9" />
+
+          {/* The whole head bobs / nods as one group */}
+          <g className="horse-head">
+            {/* Ears */}
+            <g className="ear ear-left">
+              <path d="M70 58 L60 22 L86 50 Z" />
+              <path className="ear-inner" d="M71 52 L66 33 L80 49 Z" />
+            </g>
+            <g className="ear ear-right">
+              <path d="M130 58 L140 22 L114 50 Z" />
+              <path className="ear-inner" d="M129 52 L134 33 L120 49 Z" />
+            </g>
+
+            {/* Mane */}
+            <path
+              className="mane"
+              d="M64 56 C58 70 56 92 60 120 C70 104 74 104 80 116 C84 96 90 92 96 110 C100 88 108 86 112 108 C120 96 126 100 134 118 C140 92 140 70 134 56 Z"
+            />
+
+            {/* Face / muzzle */}
+            <path
+              className="face"
+              d="M70 56 C70 48 130 48 130 56 C136 74 134 104 124 128 C118 144 110 156 100 156 C90 156 82 144 76 128 C66 104 64 74 70 56 Z"
+            />
+
+            {/* Cheek light */}
+            <path className="cheek" d="M82 92 C88 86 96 86 100 92 C96 104 86 104 82 92 Z" />
+
+            {/* Eyes */}
+            <g className="eye eye-left">
+              <ellipse className="eye-white" cx="84" cy="86" rx="9" ry="10" />
+              <circle className="pupil" cx="85" cy="87" r="5" />
+              <circle className="glint" cx="83" cy="84" r="1.8" />
+              <rect className="lid" x="74" y="74" width="20" height="24" rx="9" />
+            </g>
+            <g className="eye eye-right">
+              <ellipse className="eye-white" cx="116" cy="86" rx="9" ry="10" />
+              <circle className="pupil" cx="115" cy="87" r="5" />
+              <circle className="glint" cx="113" cy="84" r="1.8" />
+              <rect className="lid" x="106" y="74" width="20" height="24" rx="9" />
+            </g>
+
+            {/* Muzzle + nostrils + mouth */}
+            <g className="muzzle">
+              <ellipse className="muzzle-base" cx="100" cy="130" rx="22" ry="20" />
+              <ellipse className="nostril" cx="91" cy="128" rx="3.4" ry="5" />
+              <ellipse className="nostril" cx="109" cy="128" rx="3.4" ry="5" />
+              <path className="mouth" d="M88 142 Q100 150 112 142" />
+            </g>
+          </g>
+        </svg>
       </div>
 
       <div className="status-area">
@@ -462,100 +514,236 @@ export function VoiceCube() {
         .ambient-glow.thinking {
           opacity: 0.8;
         }
-        .cube-stage {
-          perspective: 800px;
-          --cube-size: clamp(120px, 22vh, 200px);
-          width: var(--cube-size);
-          height: var(--cube-size);
+        .horse-stage {
+          --horse-size: clamp(180px, 34vh, 300px);
+          width: var(--horse-size);
+          height: var(--horse-size);
           position: relative;
           z-index: 2;
           flex-shrink: 0;
         }
-        .cube {
-          width: var(--cube-size);
-          height: var(--cube-size);
-          position: relative;
-          transform-style: preserve-3d;
-          animation: cubeFloat 24s linear infinite;
+        .horse {
+          width: 100%;
+          height: 100%;
+          overflow: visible;
+          /* Gentle idle breathing for the whole horse. */
+          animation: horseBreathe 4.5s ease-in-out infinite;
         }
-        .cube-face {
-          position: absolute;
-          width: var(--cube-size);
-          height: var(--cube-size);
-          border: 1.5px solid rgba(180, 130, 70, 0.3);
-          border-radius: 12px;
-          background: linear-gradient(
-            135deg,
-            rgba(124, 92, 246, 0.12) 0%,
-            rgba(180, 130, 70, 0.14) 100%
-          );
-          overflow: hidden;
+
+        .horse-shadow {
+          fill: rgba(84, 63, 48, 0.18);
+          animation: shadowBreathe 4.5s ease-in-out infinite;
         }
-        .cube-face::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: 12px;
-          background: linear-gradient(
-            45deg,
-            rgba(124, 92, 246, 0.35) 0%,
-            rgba(180, 130, 70, 0.25) 25%,
-            rgba(124, 92, 246, 0.15) 50%,
-            rgba(236, 72, 153, 0.3) 75%,
-            rgba(124, 92, 246, 0.25) 100%
-          );
-          background-size: 300% 300%;
-          animation: gradientShift 4s ease infinite;
-          opacity: 0.8;
+
+        /* ── Palette (warm horse) ── */
+        .face {
+          fill: #b07d4f;
         }
-        .cube.speaking .cube-face::before {
-          opacity: 1;
-          animation: gradientShift 1.5s ease infinite;
+        .mane {
+          fill: #6f4a2c;
         }
-        .face-front {
-          transform: translateZ(calc(var(--cube-size) / 2));
+        .cheek {
+          fill: rgba(255, 233, 204, 0.35);
         }
-        .face-back {
-          transform: rotateY(180deg) translateZ(calc(var(--cube-size) / 2));
+        .muzzle-base {
+          fill: #9c6a3e;
         }
-        .face-left {
-          transform: rotateY(-90deg) translateZ(calc(var(--cube-size) / 2));
+        .nostril {
+          fill: #4a3320;
+          transform-box: fill-box;
+          transform-origin: center;
         }
-        .face-right {
-          transform: rotateY(90deg) translateZ(calc(var(--cube-size) / 2));
+        .mouth {
+          fill: none;
+          stroke: #4a3320;
+          stroke-width: 2.4;
+          stroke-linecap: round;
         }
-        .face-top {
-          transform: rotateX(90deg) translateZ(calc(var(--cube-size) / 2));
+        .ear path {
+          fill: #a9743f;
         }
-        .face-bottom {
-          transform: rotateX(-90deg) translateZ(calc(var(--cube-size) / 2));
+        .ear .ear-inner {
+          fill: #d9a36c;
         }
-        @keyframes gradientShift {
-          0% {
-            background-position: 0% 50%;
+        .eye-white {
+          fill: #fffaf4;
+        }
+        .pupil {
+          fill: #2a1c12;
+        }
+        .glint {
+          fill: #fff;
+        }
+        .lid {
+          fill: #b07d4f;
+          transform-box: fill-box;
+          transform-origin: center;
+          transform: scaleY(0);
+          animation: blink 5.2s ease-in-out infinite;
+        }
+        .eye-right .lid {
+          animation-delay: 0.04s;
+        }
+
+        /* The head group bobs gently; nods faster while speaking. */
+        .horse-head {
+          transform-box: fill-box;
+          transform-origin: 100px 60px;
+          animation: headBob 4.5s ease-in-out infinite;
+        }
+
+        /* Ears flick subtly, out of phase. */
+        .ear {
+          transform-box: fill-box;
+          transform-origin: bottom center;
+        }
+        .ear-left {
+          animation: earFlickL 6s ease-in-out infinite;
+        }
+        .ear-right {
+          animation: earFlickR 6.8s ease-in-out infinite;
+        }
+
+        .muzzle {
+          transform-box: fill-box;
+          transform-origin: 100px 130px;
+        }
+
+        /* ── State reactions ── */
+        /* Listening: head tilts attentively, ears perk. */
+        .horse.listening .horse-head {
+          animation: headListen 3s ease-in-out infinite;
+        }
+        /* Thinking: slow side-to-side ponder. */
+        .horse.thinking .horse-head {
+          animation: headThink 2.4s ease-in-out infinite;
+        }
+        /* Speaking: lively nod + mouth/nostril movement. */
+        .horse.speaking .horse-head {
+          animation: headNod 0.5s ease-in-out infinite;
+        }
+        .horse.speaking .muzzle {
+          animation: muzzleTalk 0.34s ease-in-out infinite;
+        }
+        .horse.speaking .nostril {
+          animation: nostrilFlare 0.34s ease-in-out infinite;
+        }
+
+        @keyframes horseBreathe {
+          0%,
+          100% {
+            transform: scale(1);
           }
           50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
+            transform: scale(1.018);
           }
         }
-        @keyframes cubeFloat {
-          0% {
-            transform: rotateX(-15deg) rotateY(0deg);
-          }
-          25% {
-            transform: rotateX(0deg) rotateY(90deg);
+        @keyframes shadowBreathe {
+          0%,
+          100% {
+            transform: scaleX(1);
+            opacity: 0.18;
           }
           50% {
-            transform: rotateX(15deg) rotateY(180deg);
+            transform: scaleX(1.06);
+            opacity: 0.24;
           }
-          75% {
-            transform: rotateX(0deg) rotateY(270deg);
-          }
+        }
+        @keyframes headBob {
+          0%,
           100% {
-            transform: rotateX(-15deg) rotateY(360deg);
+            transform: translateY(0) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-3px) rotate(0deg);
+          }
+        }
+        @keyframes blink {
+          0%,
+          92%,
+          100% {
+            transform: scaleY(0);
+          }
+          95%,
+          97% {
+            transform: scaleY(1);
+          }
+        }
+        @keyframes earFlickL {
+          0%,
+          70%,
+          100% {
+            transform: rotate(0deg);
+          }
+          78% {
+            transform: rotate(-9deg);
+          }
+        }
+        @keyframes earFlickR {
+          0%,
+          60%,
+          100% {
+            transform: rotate(0deg);
+          }
+          68% {
+            transform: rotate(9deg);
+          }
+        }
+        @keyframes headListen {
+          0%,
+          100% {
+            transform: rotate(-4deg) translateY(0);
+          }
+          50% {
+            transform: rotate(-4deg) translateY(-2px);
+          }
+        }
+        @keyframes headThink {
+          0%,
+          100% {
+            transform: rotate(-3deg);
+          }
+          50% {
+            transform: rotate(3deg);
+          }
+        }
+        @keyframes headNod {
+          0%,
+          100% {
+            transform: translateY(0) rotate(0deg);
+          }
+          50% {
+            transform: translateY(2.5px) rotate(1deg);
+          }
+        }
+        @keyframes muzzleTalk {
+          0%,
+          100% {
+            transform: scaleY(1) translateY(0);
+          }
+          50% {
+            transform: scaleY(1.16) translateY(1.5px);
+          }
+        }
+        @keyframes nostrilFlare {
+          0%,
+          100% {
+            transform: scaleX(1);
+          }
+          50% {
+            transform: scaleX(1.25);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .horse,
+          .horse-head,
+          .horse-shadow,
+          .lid,
+          .ear,
+          .muzzle,
+          .nostril {
+            animation: none !important;
           }
         }
         .status-area {

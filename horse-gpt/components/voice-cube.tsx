@@ -594,15 +594,13 @@ export function VoiceCube() {
           font-weight: 600;
           color: #fff;
           background: linear-gradient(135deg, #8a5a2b, #b4824a);
-          transition: transform 0.15s ease, box-shadow 0.2s ease;
-          box-shadow: 0 6px 20px rgba(138, 90, 43, 0.35);
+          transition: transform 0.15s ease;
         }
         .convo-btn:hover {
           transform: translateY(-1px);
         }
         .convo-btn.active {
           background: linear-gradient(135deg, #dc2626, #f87171);
-          box-shadow: 0 6px 20px rgba(220, 38, 38, 0.35);
         }
         .cube-link {
           font-size: 14px;

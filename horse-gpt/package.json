@@ -10,6 +10,7 @@
     "download:horse-sounds": "node scripts/download-horse-sounds.mjs"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "next": "16.2.9",
     "nodemailer": "^9.0.1",
     "openai": "^6.44.0",

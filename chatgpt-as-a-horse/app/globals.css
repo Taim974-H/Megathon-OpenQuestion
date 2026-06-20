@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #241912;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --sidebar: #3f2c21;
+  --sidebar-foreground: #f4ede6;
+  --border: rgba(74, 54, 42, 0.12);
+  --border-strong: rgba(74, 54, 42, 0.2);
+  --accent: #8a5a3c;
+  --accent-strong: #74482e;
+  --saddle: #8a6c58;
+  --app-font-sans: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  --app-font-display: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--app-font-sans);
+  --font-display: var(--app-font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #ffffff;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--app-font-sans);
+  min-height: 100vh;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(53, 84, 58, 0.18);
+}
+
+.grain {
+  position: relative;
+}
+
+.grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='%2352382a' fill-opacity='0.05'%3E%3Ccircle cx='20' cy='22' r='2'/%3E%3Ccircle cx='108' cy='34' r='1.5'/%3E%3Ccircle cx='196' cy='25' r='2'/%3E%3Ccircle cx='56' cy='102' r='1.5'/%3E%3Ccircle cx='143' cy='118' r='2'/%3E%3Ccircle cx='32' cy='180' r='2'/%3E%3Ccircle cx='188' cy='176' r='1.5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.card-shadow {
+  box-shadow:
+    0 24px 60px rgba(60, 41, 29, 0.1),
+    0 8px 20px rgba(60, 41, 29, 0.06);
+}
+
+.message-rise {
+  animation: rise 220ms ease-out;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(74, 54, 42, 0.2);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

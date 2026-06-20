@@ -1131,45 +1131,103 @@ export function ChatApp() {
         </aside>
 
         <div className="flex h-screen min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-4 pt-3 sm:px-6">
-          <header className="flex flex-wrap items-center justify-end gap-2 py-2">
-            {isSpeaking ? (
+          <header className="flex items-center justify-between gap-2 py-2">
+            <div className="flex min-w-0 items-center gap-2 md:hidden">
               <button
                 type="button"
-                onClick={stopSpeaking}
-                className="offer-button"
-                aria-label="Stop the spoken reply"
-                title="Stop speaking"
+                onClick={() => setIsMobileNavOpen(true)}
+                className="header-control-button"
+                aria-label="Open navigation"
+                title="Open chats"
               >
-                <SoundOffIcon />
-                <span>Stop voice</span>
+                <MenuIcon />
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => {
-                setIsSoundOn((current) => !current);
-                stopSpeaking();
-              }}
-              className="offer-button"
-              aria-pressed={isSoundOn}
-              aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
-              title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
-            >
-              {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
-              <span>{isSoundOn ? "Sound on" : "Sound off"}</span>
-            </button>
-            <button
-              type="button"
-              onClick={openExportDialog}
-              className="offer-button"
-            >
-              <ExportIcon />
-              <span>Export</span>
-            </button>
-            <a href="/cube" className="offer-button">
-              <MicIcon />
-              <span>Conversation</span>
-            </a>
+              <div className="truncate text-lg font-semibold tracking-tight">
+                {appName}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {isSpeaking ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={stopSpeaking}
+                    className="header-control-button md:hidden"
+                    aria-label="Stop the spoken reply"
+                    title="Stop speaking"
+                  >
+                    <SoundOffIcon />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopSpeaking}
+                    className="offer-button max-md:hidden"
+                    aria-label="Stop the spoken reply"
+                    title="Stop speaking"
+                  >
+                    <SoundOffIcon />
+                    <span>Stop voice</span>
+                  </button>
+                </>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSoundOn((current) => !current);
+                  stopSpeaking();
+                }}
+                className="header-control-button md:hidden"
+                aria-pressed={isSoundOn}
+                aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
+                title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
+              >
+                {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSoundOn((current) => !current);
+                  stopSpeaking();
+                }}
+                className="offer-button max-md:hidden"
+                aria-pressed={isSoundOn}
+                aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
+                title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
+              >
+                {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
+                <span>{isSoundOn ? "Sound on" : "Sound off"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={openExportDialog}
+                className="header-control-button md:hidden"
+                aria-label="Export transcript"
+                title="Export"
+              >
+                <ExportIcon />
+              </button>
+              <button
+                type="button"
+                onClick={openExportDialog}
+                className="offer-button max-md:hidden"
+              >
+                <ExportIcon />
+                <span>Export</span>
+              </button>
+              <a
+                href="/cube"
+                className="header-control-button md:hidden"
+                aria-label="Open conversation mode"
+                title="Conversation"
+              >
+                <MicIcon />
+              </a>
+              <a href="/cube" className="offer-button max-md:hidden">
+                <MicIcon />
+                <span>Conversation</span>
+              </a>
+            </div>
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col">

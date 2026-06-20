@@ -154,3 +154,38 @@ export function deleteChatThread(id: string) {
     return true;
   });
 }
+
+export async function updateAllChatThreadsMode({
+  mode,
+  createStarterLine,
+}: {
+  mode: ChatMode;
+  createStarterLine: () => string;
+}) {
+  const store = await readStore();
+  const now = new Date().toISOString();
+
+  store.threads = store.threads.map((thread) => {
+    if (thread.messages.length > 0) {
+      return {
+        ...thread,
+        mode,
+        updatedAt: now,
+      };
+    }
+
+    const starterLine = createStarterLine();
+
+    return {
+      ...thread,
+      mode,
+      starterLine,
+      title: thread.title === thread.starterLine ? starterLine : thread.title,
+      updatedAt: now,
+    };
+  });
+
+  await writeStore(store);
+
+  return store.threads;
+}

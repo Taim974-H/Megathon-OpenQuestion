@@ -5,9 +5,40 @@ export const ASSISTANT_NAME = "HorseGPT";
 export const MODE_STORAGE_KEY = "horsegpt-chat-mode";
 export const EMAIL_FROM_NAME = "HorseGPT";
 export const EMAIL_FROM_ADDRESS = "chatgptasahorse@outlook.com";
+export const HORSE_STARTER_LINES = [
+  "Where should we gallop?",
+  "Which haywire problem are we trotting into?",
+  "What chaos needs a horse today?",
+  "Which stable-grade life mess are we fixing?",
+] as const;
+export const UNICORN_STARTER_LINES = [
+  "Which rainbow are we galloping toward?",
+  "What glitter emergency are we charging into?",
+  "Which cosmic mess needs a unicorn hoof?",
+  "Where should this magical stampede begin?",
+] as const;
+
+function parseFlag(value: string | undefined) {
+  return /^(1|true|yes|on)$/i.test(value ?? "");
+}
+
+export const EMAIL_EXPORT_ENABLED = parseFlag(
+  process.env.NEXT_PUBLIC_TRANSCRIPT_EMAIL_ENABLED,
+);
+
+export function isServerEmailExportEnabled() {
+  return parseFlag(
+    process.env.TRANSCRIPT_EMAIL_ENABLED ??
+      process.env.NEXT_PUBLIC_TRANSCRIPT_EMAIL_ENABLED,
+  );
+}
 
 export function getModeAppName(mode: ChatMode) {
   return mode === "unicorn" ? "UnicornGPT" : APP_NAME;
+}
+
+export function getStarterLines(mode: ChatMode) {
+  return mode === "unicorn" ? UNICORN_STARTER_LINES : HORSE_STARTER_LINES;
 }
 
 export const HORSE_SOUND_SUFFIXES = [

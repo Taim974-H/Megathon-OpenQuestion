@@ -36,6 +36,7 @@ const FONT_SIZES = {
   body: 11,
   label: 9,
   chip: 10,
+  sectionTitle: 18,
 };
 
 const MEGATHON_COLORS = {
@@ -299,6 +300,30 @@ function getFileName(mode: ChatMode) {
   return `${getModeAppName(mode).toLowerCase()}-${mode}-${stamp}.pdf`;
 }
 
+function drawTranscriptHeader(
+  page: PDFPage,
+  theme: Theme,
+  font: PDFFont,
+  y: number,
+) {
+  page.drawText("Transcript", {
+    x: PAGE.margin + 18,
+    y,
+    size: FONT_SIZES.sectionTitle,
+    font,
+    color: theme.text,
+  });
+
+  page.drawRectangle({
+    x: PAGE.margin + 18,
+    y: y - 10,
+    width: 96,
+    height: 2,
+    color: theme.accent,
+    opacity: 0.72,
+  });
+}
+
 export async function buildChatPdf(messages: ChatMessage[], mode: ChatMode) {
   const pdf = await PDFDocument.create();
   const theme = getTheme(mode);
@@ -360,7 +385,42 @@ export async function buildChatPdf(messages: ChatMessage[], mode: ChatMode) {
 
   const cardX = PAGE.margin + 18;
   const cardWidth = PAGE.width - PAGE.margin * 2 - 36;
-  const cardHeight = 138;
+  const cardInnerX = cardX + 36;
+  const cardInnerWidth = cardWidth - 72;
+  const builtWithText = MEGATHON_COPY.builtWith.join("  •  ");
+  const statsText = MEGATHON_COPY.stats.join("  •  ");
+  const manifestoText = MEGATHON_COPY.manifesto.join("\n");
+  const builtWithLabelSize = 11;
+  const builtWithValueSize = 12;
+  const builtWithLineHeight = 14;
+  const statsLineHeight = 12;
+  const manifestoLineHeight = 14;
+  const builtWithLines = wrapText(
+    builtWithText,
+    regularFont,
+    builtWithValueSize,
+    cardInnerWidth,
+  );
+  const statsLines = wrapText(statsText, regularFont, 9.5, cardInnerWidth);
+  const manifestoLines = wrapText(
+    manifestoText,
+    regularFont,
+    10.5,
+    cardInnerWidth,
+  );
+  const builtWithBlockHeight =
+    20 + builtWithLines.length * builtWithLineHeight;
+  const cardHeight =
+    34 +
+    26 +
+    20 +
+    18 +
+    statsLines.length * statsLineHeight +
+    18 +
+    manifestoLines.length * manifestoLineHeight +
+    28 +
+    builtWithBlockHeight +
+    28;
 
   drawRoundedRect(
     page,
@@ -372,83 +432,89 @@ export async function buildChatPdf(messages: ChatMessage[], mode: ChatMode) {
     MEGATHON_COLORS.black,
   );
 
-  page.drawRectangle({
-    x: cardX,
-    y: cursorY - 7,
-    width: cardWidth,
-    height: 7,
-    color: MEGATHON_COLORS.gold,
-  });
-
   page.drawText(MEGATHON_COPY.title, {
-    x: PAGE.margin + 32,
-    y: cursorY - 18,
+    x: cardInnerX,
+    y: cursorY - 40,
     size: 21,
-    font: boldFont,
-    color: MEGATHON_COLORS.white,
-  });
-
-  page.drawText(MEGATHON_COPY.subtitle, {
-    x: PAGE.margin + 32,
-    y: cursorY - 41,
-    size: FONT_SIZES.body,
-    font: regularFont,
-    color: MEGATHON_COLORS.whiteMuted,
-  });
-
-  page.drawText("Built with", {
-    x: PAGE.margin + 32,
-    y: cursorY - 64,
-    size: 9,
     font: boldFont,
     color: MEGATHON_COLORS.goldSoft,
   });
 
-  page.drawText(MEGATHON_COPY.builtWith.join("  •  "), {
-    x: PAGE.margin + 32,
-    y: cursorY - 79,
-    size: 10,
+  page.drawText(MEGATHON_COPY.subtitle, {
+    x: cardInnerX,
+    y: cursorY - 68,
+    size: FONT_SIZES.body,
     font: regularFont,
-    color: MEGATHON_COLORS.white,
+    color: MEGATHON_COLORS.whiteMuted,
   });
-
-  const partnerText = [
-    MEGATHON_COPY.stats.join("  •  "),
-    "",
-    ...MEGATHON_COPY.manifesto,
-  ].join("\n");
+  const statsStartY = cursorY - 98;
 
   drawWrappedText({
     page,
-    text: partnerText,
+    text: statsText,
     font: regularFont,
     size: 9.5,
+    color: MEGATHON_COLORS.white,
+    x: cardInnerX,
+    y: statsStartY,
+    width: cardInnerWidth,
+    lineHeight: statsLineHeight,
+  });
+
+  const manifestoStartY =
+    statsStartY - statsLines.length * statsLineHeight - 22;
+
+  drawWrappedText({
+    page,
+    text: manifestoText,
+    font: regularFont,
+    size: 10.5,
     color: MEGATHON_COLORS.whiteMuted,
-    x: PAGE.margin + 32,
-    y: cursorY - 100,
-    width: PAGE.width - PAGE.margin * 2 - 64,
-    lineHeight: 12,
+    x: cardInnerX,
+    y: manifestoStartY,
+    width: cardInnerWidth,
+    lineHeight: manifestoLineHeight,
   });
 
-  cursorY -= 160;
+  const builtWithLabelY = cursorY - cardHeight + 44;
 
-  page.drawText("Transcript", {
-    x: PAGE.margin + 18,
-    y: cursorY,
-    size: 10,
+  page.drawText("Built with", {
+    x: cardInnerX,
+    y: builtWithLabelY,
+    size: builtWithLabelSize,
     font: boldFont,
-    color: theme.textMuted,
+    color: MEGATHON_COLORS.goldSoft,
   });
 
-  cursorY -= 18;
+  drawWrappedText({
+    page,
+    text: builtWithText,
+    font: regularFont,
+    size: builtWithValueSize,
+    color: MEGATHON_COLORS.white,
+    x: cardInnerX,
+    y: builtWithLabelY - 18,
+    width: cardInnerWidth,
+    lineHeight: builtWithLineHeight,
+  });
+
+  cursorY -= cardHeight + 36;
+
+  drawTranscriptHeader(page, theme, boldFont, cursorY);
+
+  cursorY -= 34;
 
   const transcriptX = PAGE.margin + 18;
   const transcriptWidth = PAGE.width - PAGE.margin * 2 - 36;
-  const maxTextWidth = transcriptWidth * 0.62;
-  const minBubbleWidth = 140;
-  const paddingX = 16;
-  const paddingY = 14;
+  const bubbleMaxWidth = transcriptWidth * 0.66;
+  const bubbleMinWidth = 164;
+  const bubblePaddingX = 18;
+  const bubblePaddingY = 15;
   const lineHeight = 15;
+  const bubbleGap = 18;
+  const sideInset = 10;
+  const roleGap = 10;
+  const textWidth = bubbleMaxWidth - bubblePaddingX * 2;
 
   for (const message of messages) {
     const isUser = message.role === "user";
@@ -458,31 +524,33 @@ export async function buildChatPdf(messages: ChatMessage[], mode: ChatMode) {
       message.content,
       regularFont,
       FONT_SIZES.body,
-      maxTextWidth,
+      textWidth,
     );
     let lineIndex = 0;
 
     while (lineIndex < allLines.length) {
-      const minChunkHeight = paddingY * 2 + lineHeight;
+      const minChunkHeight = bubblePaddingY * 2 + lineHeight;
 
       if (cursorY - minChunkHeight < PAGE.margin + 24) {
         addPage();
+        drawTranscriptHeader(page, theme, boldFont, cursorY);
+        cursorY -= 34;
       }
 
-      const availableHeight = cursorY - (PAGE.margin + 24) - paddingY * 2;
+      const availableHeight = cursorY - (PAGE.margin + 24) - bubblePaddingY * 2;
       const linesPerPage = Math.max(1, Math.floor(availableHeight / lineHeight));
       const chunkLines = allLines.slice(lineIndex, lineIndex + linesPerPage);
       const longestLineWidth = chunkLines.reduce((max, line) => {
         return Math.max(max, regularFont.widthOfTextAtSize(line, FONT_SIZES.body));
       }, 0);
       const bubbleWidth = Math.min(
-        transcriptWidth * 0.74,
-        Math.max(minBubbleWidth, longestLineWidth + paddingX * 2),
+        bubbleMaxWidth,
+        Math.max(bubbleMinWidth, longestLineWidth + bubblePaddingX * 2),
       );
-      const bubbleHeight = paddingY * 2 + chunkLines.length * lineHeight;
+      const bubbleHeight = bubblePaddingY * 2 + chunkLines.length * lineHeight;
       const bubbleX = isUser
-        ? transcriptX + transcriptWidth - bubbleWidth
-        : transcriptX;
+        ? transcriptX + transcriptWidth - bubbleWidth - sideInset
+        : transcriptX + sideInset;
 
       drawRoundedRect(
         page,
@@ -500,17 +568,20 @@ export async function buildChatPdf(messages: ChatMessage[], mode: ChatMode) {
         font: regularFont,
         size: FONT_SIZES.body,
         color: textColor,
-        x: bubbleX + paddingX,
-        y: cursorY - paddingY - FONT_SIZES.body,
-        width: bubbleWidth - paddingX * 2,
+        x: bubbleX + bubblePaddingX,
+        y: cursorY - bubblePaddingY - FONT_SIZES.body,
+        width: bubbleWidth - bubblePaddingX * 2,
         lineHeight,
       });
 
-      cursorY -= bubbleHeight + 12;
+      cursorY -= bubbleHeight + bubbleGap;
       lineIndex += chunkLines.length;
 
       if (lineIndex < allLines.length) {
+        cursorY -= roleGap;
         addPage();
+        drawTranscriptHeader(page, theme, boldFont, cursorY);
+        cursorY -= 34;
       }
     }
   }

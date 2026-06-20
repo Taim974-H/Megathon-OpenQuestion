@@ -11,13 +11,19 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import { MODE_STORAGE_KEY, getModeAppName } from "@/lib/chat-config";
+import {
+  EMAIL_EXPORT_ENABLED,
+  HORSE_STARTER_LINES,
+  MODE_STORAGE_KEY,
+  UNICORN_STARTER_LINES,
+  getModeAppName,
+} from "@/lib/chat-config";
 import type { ChatMessage, ChatMode, ChatThread } from "@/types/chat";
 
 type ExportResponse = {
   fileName?: string;
   pdfBase64?: string;
-  sent?: boolean;
+  emailed?: boolean;
   error?: string;
 };
 
@@ -47,18 +53,8 @@ const SUGGESTIONS: Record<ChatMode, string[]> = {
   ],
 };
 const STARTER_LINES: Record<ChatMode, string[]> = {
-  horse: [
-    "Where should we gallop?",
-    "Which haywire problem are we trotting into?",
-    "What chaos needs a horse today?",
-    "Which stable-grade life mess are we fixing?",
-  ],
-  unicorn: [
-    "Which rainbow are we galloping toward?",
-    "What glitter emergency are we charging into?",
-    "Which cosmic mess needs a unicorn hoof?",
-    "Where should this magical stampede begin?",
-  ],
+  horse: [...HORSE_STARTER_LINES],
+  unicorn: [...UNICORN_STARTER_LINES],
 };
 const SPARKLE_SEEDS = Array.from({ length: 18 }, (_, index) => ({
   left: (index * 19) % 100,
@@ -860,7 +856,6 @@ export function ChatApp() {
 
   function switchToThread(thread: ChatThread) {
     setCurrentChatId(thread.id);
-    setMode(thread.mode);
     setComposer("");
     setError(null);
     setNotice(null);
@@ -934,26 +929,51 @@ export function ChatApp() {
       setBurstVersion((current) => current + 1);
     }
 
-    if (!currentThread) {
-      return;
-    }
+    setThreads((current) =>
+      current.map((thread) => {
+        if (thread.messages.length > 0) {
+          return { ...thread, mode: nextMode };
+        }
 
-    updateThreadLocal(currentThread.id, (thread) => ({
-      ...thread,
-      mode: nextMode,
-      starterLine:
-        thread.messages.length === 0 ? nextStarterLine : thread.starterLine,
-      title:
-        thread.messages.length === 0 ? nextStarterLine : thread.title,
-    }));
+        const starterLine =
+          thread.id === currentThread?.id ? nextStarterLine : pickStarterLine(nextMode);
 
-    void persistThread(currentThread.id, {
-      mode: nextMode,
-      starterLine:
-        currentThread.messages.length === 0 ? nextStarterLine : currentThread.starterLine,
-      title:
-        currentThread.messages.length === 0 ? nextStarterLine : currentThread.title,
-    }).catch(() => {});
+        return {
+          ...thread,
+          mode: nextMode,
+          starterLine,
+          title: thread.title === thread.starterLine ? starterLine : thread.title,
+        };
+      }),
+    );
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/chats", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: nextMode }),
+        });
+        const data = (await response.json()) as ChatsResponse;
+
+        if (!response.ok || !data.threads) {
+          throw new Error(data.error ?? "Unable to switch chat mode.");
+        }
+
+        setThreads(data.threads);
+        const activeThread = data.threads.find((thread) => thread.id === currentChatId) ?? null;
+
+        if (activeThread) {
+          setStarterFallback(activeThread.starterLine);
+        }
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to switch chat mode.",
+        );
+      }
+    })();
   }
 
   function openExportDialog() {
@@ -972,7 +992,12 @@ export function ChatApp() {
 
     const trimmedEmail = exportEmail.trim();
 
-    if (!trimmedEmail || isExporting || !currentThread) {
+    if (EMAIL_EXPORT_ENABLED && !trimmedEmail) {
+      setError("Enter a valid email address.");
+      return;
+    }
+
+    if (isExporting || !currentThread) {
       return;
     }
 
@@ -985,7 +1010,7 @@ export function ChatApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: trimmedEmail,
+          email: EMAIL_EXPORT_ENABLED ? trimmedEmail : undefined,
           messages,
           mode,
         }),
@@ -993,17 +1018,21 @@ export function ChatApp() {
 
       const data = (await response.json()) as ExportResponse;
 
-      if (!response.ok || !data.fileName || !data.pdfBase64) {
+      if (!response.ok || !data.fileName || (!EMAIL_EXPORT_ENABLED && !data.pdfBase64)) {
         throw new Error(data.error ?? "Unable to export the chat.");
       }
 
-      triggerPdfDownload(data.fileName, data.pdfBase64);
+      if (!EMAIL_EXPORT_ENABLED && data.pdfBase64) {
+        triggerPdfDownload(data.fileName, data.pdfBase64);
+      }
       setIsExportOpen(false);
       setExportEmail("");
       setNotice(
-        data.sent
-          ? `PDF downloaded and emailed to ${trimmedEmail}.`
-          : data.error ?? "PDF downloaded, but the email did not go out.",
+        EMAIL_EXPORT_ENABLED
+          ? data.emailed
+            ? `PDF emailed to ${trimmedEmail}.`
+            : data.error ?? "The email did not go out."
+          : "PDF downloaded.",
       );
     } catch (caughtError) {
       setError(
@@ -1305,7 +1334,9 @@ export function ChatApp() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">
-                  {`Email this ${appName} chat`}
+                  {EMAIL_EXPORT_ENABLED
+                    ? `Email and download this ${appName} chat`
+                    : `Download this ${appName} chat`}
                 </h2>
               </div>
               <button
@@ -1318,20 +1349,27 @@ export function ChatApp() {
             </div>
 
             <form onSubmit={handleExportSubmit} className="mt-5 space-y-4">
-              <input
-                type="email"
-                value={exportEmail}
-                onChange={(event) => setExportEmail(event.target.value)}
-                placeholder="founder@megathon.eu"
-                autoFocus
-                className="glass-input"
-              />
+              {EMAIL_EXPORT_ENABLED ? (
+                <input
+                  type="email"
+                  value={exportEmail}
+                  onChange={(event) => setExportEmail(event.target.value)}
+                  placeholder="founder@megathon.eu"
+                  autoFocus
+                  className="glass-input"
+                />
+              ) : null}
               <button
                 type="submit"
-                disabled={isExporting || !exportEmail.trim()}
+                autoFocus={!EMAIL_EXPORT_ENABLED}
+                disabled={isExporting || (EMAIL_EXPORT_ENABLED && !exportEmail.trim())}
                 className="send-export-button"
               >
-                {isExporting ? "Packaging..." : "Send PDF"}
+                {isExporting
+                  ? "Packaging..."
+                  : EMAIL_EXPORT_ENABLED
+                    ? "Email PDF"
+                    : "Download PDF"}
               </button>
             </form>
           </div>

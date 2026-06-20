@@ -5,10 +5,11 @@ import {
   emailChatPdf,
   getPdfFileName,
 } from "@/lib/chat-export";
+import { isServerEmailExportEnabled } from "@/lib/chat-config";
 import { normalizeMode, normalizeMessages } from "@/lib/horse";
+import { recordTranscriptEmailRecipient } from "@/lib/transcript-email-store";
 
 export const runtime = "nodejs";
-
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
@@ -21,13 +22,7 @@ export async function POST(request: Request) {
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const messages = normalizeMessages(body.messages);
     const mode = normalizeMode(body.mode);
-
-    if (!EMAIL_PATTERN.test(email)) {
-      return NextResponse.json(
-        { error: "Enter a valid email address." },
-        { status: 400 },
-      );
-    }
+    const emailEnabled = isServerEmailExportEnabled();
 
     if (messages.length === 0) {
       return NextResponse.json(
@@ -37,13 +32,31 @@ export async function POST(request: Request) {
     }
 
     const pdfBytes = await buildChatPdf(messages, mode);
-    const mailResult = await emailChatPdf({ email, pdfBytes, mode });
+    let emailed = false;
+    let emailError: string | undefined;
+
+    if (emailEnabled) {
+      if (!EMAIL_PATTERN.test(email)) {
+        return NextResponse.json(
+          { error: "Enter a valid email address." },
+          { status: 400 },
+        );
+      }
+
+      const result = await emailChatPdf({ email, pdfBytes, mode });
+      emailed = result.sent;
+      emailError = result.sent ? undefined : result.error;
+
+      if (result.sent) {
+        await recordTranscriptEmailRecipient({ email, mode });
+      }
+    }
 
     return NextResponse.json({
       fileName: getPdfFileName(mode),
-      pdfBase64: pdfBytes.toString("base64"),
-      sent: mailResult.sent,
-      error: mailResult.sent ? undefined : mailResult.error,
+      pdfBase64: emailEnabled ? undefined : pdfBytes.toString("base64"),
+      emailed,
+      error: emailError,
     });
   } catch (error) {
     const message =

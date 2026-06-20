@@ -1132,7 +1132,7 @@ export function ChatApp() {
             </button>
             <a href="/cube" className="offer-button">
               <MicIcon />
-              <span>Voice</span>
+              <span>Conversation</span>
             </a>
           </header>
 

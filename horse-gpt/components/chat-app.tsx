@@ -1047,7 +1047,7 @@ export function ChatApp() {
         ) : null}
 
         <aside
-          className={`left-rail fixed inset-y-0 left-0 z-40 flex w-[min(84vw,320px)] min-h-0 flex-col gap-4 overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.9rem+env(safe-area-inset-top))] shadow-2xl transition-transform duration-200 md:static md:z-auto md:h-[100dvh] md:w-auto md:translate-x-0 md:px-4 md:pb-4 md:pt-3 md:shadow-none ${
+          className={`left-rail fixed inset-y-0 left-0 z-40 flex w-[min(84vw,320px)] min-h-0 flex-col gap-4 overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.9rem+env(safe-area-inset-top))] transition-transform duration-200 md:static md:z-auto md:h-[100dvh] md:w-auto md:translate-x-0 md:px-4 md:pb-4 md:pt-3 ${
             isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
@@ -1130,7 +1130,7 @@ export function ChatApp() {
           </div>
         </aside>
 
-        <div className="flex h-screen min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-4 pt-3 sm:px-6">
+        <div className="flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-4 pt-3 sm:px-6">
           <header className="flex items-center justify-between gap-2 py-2">
             <div className="flex min-w-0 items-center gap-2 md:hidden">
               <button

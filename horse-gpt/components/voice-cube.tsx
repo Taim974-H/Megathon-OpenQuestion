@@ -432,7 +432,8 @@ export function VoiceCube() {
           justify-content: center;
           height: 100dvh;
           overflow: hidden;
-          gap: 8px;
+          gap: clamp(12px, 2vh, 24px);
+          padding: clamp(16px, 4vh, 40px) 16px;
         }
         .ambient-glow {
           position: absolute;
@@ -463,22 +464,24 @@ export function VoiceCube() {
         }
         .cube-stage {
           perspective: 800px;
-          width: 200px;
-          height: 200px;
+          --cube-size: clamp(120px, 22vh, 200px);
+          width: var(--cube-size);
+          height: var(--cube-size);
           position: relative;
           z-index: 2;
+          flex-shrink: 0;
         }
         .cube {
-          width: 200px;
-          height: 200px;
+          width: var(--cube-size);
+          height: var(--cube-size);
           position: relative;
           transform-style: preserve-3d;
           animation: cubeFloat 24s linear infinite;
         }
         .cube-face {
           position: absolute;
-          width: 200px;
-          height: 200px;
+          width: var(--cube-size);
+          height: var(--cube-size);
           border: 1.5px solid rgba(180, 130, 70, 0.3);
           border-radius: 12px;
           background: linear-gradient(
@@ -510,22 +513,22 @@ export function VoiceCube() {
           animation: gradientShift 1.5s ease infinite;
         }
         .face-front {
-          transform: translateZ(100px);
+          transform: translateZ(calc(var(--cube-size) / 2));
         }
         .face-back {
-          transform: rotateY(180deg) translateZ(100px);
+          transform: rotateY(180deg) translateZ(calc(var(--cube-size) / 2));
         }
         .face-left {
-          transform: rotateY(-90deg) translateZ(100px);
+          transform: rotateY(-90deg) translateZ(calc(var(--cube-size) / 2));
         }
         .face-right {
-          transform: rotateY(90deg) translateZ(100px);
+          transform: rotateY(90deg) translateZ(calc(var(--cube-size) / 2));
         }
         .face-top {
-          transform: rotateX(90deg) translateZ(100px);
+          transform: rotateX(90deg) translateZ(calc(var(--cube-size) / 2));
         }
         .face-bottom {
-          transform: rotateX(-90deg) translateZ(100px);
+          transform: rotateX(-90deg) translateZ(calc(var(--cube-size) / 2));
         }
         @keyframes gradientShift {
           0% {
@@ -556,35 +559,32 @@ export function VoiceCube() {
           }
         }
         .status-area {
-          margin-top: 36px;
           text-align: center;
           z-index: 2;
-          min-height: 80px;
-          max-width: 90vw;
+          max-width: min(540px, 90vw);
         }
         .status-label {
-          font-size: 12px;
+          font-size: 11px;
           letter-spacing: 0.25em;
           text-transform: uppercase;
           color: var(--muted, #8a7a6a);
-          margin-bottom: 10px;
+          margin-bottom: 8px;
         }
         .cube-transcript {
-          font-size: 18px;
-          line-height: 1.5;
+          font-size: clamp(15px, 2.2vh, 18px);
+          line-height: 1.45;
           color: var(--foreground, #1a140e);
-          max-width: 540px;
         }
         .cube-error {
-          margin-top: 10px;
+          margin-top: 8px;
           font-size: 13px;
           color: #dc2626;
         }
         .cube-controls {
-          margin-top: 28px;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 16px;
+          gap: 10px;
           z-index: 2;
         }
         .convo-btn {

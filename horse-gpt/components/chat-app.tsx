@@ -18,18 +18,18 @@ import {
   UNICORN_STARTER_LINES,
   getModeAppName,
 } from "@/lib/chat-config";
+import {
+  createThread,
+  deleteThread,
+  loadThreads,
+  updateThread,
+} from "@/lib/chat-local";
 import type { ChatMessage, ChatMode, ChatThread } from "@/types/chat";
 
 type ExportResponse = {
   fileName?: string;
   pdfBase64?: string;
   emailed?: boolean;
-  error?: string;
-};
-
-type ChatsResponse = {
-  threads?: ChatThread[];
-  thread?: ChatThread;
   error?: string;
 };
 
@@ -255,72 +255,36 @@ export function ChatApp() {
   const messages = currentThread?.messages ?? EMPTY_MESSAGES;
 
   useEffect(() => {
-    let cancelled = false;
+    // Chats live in the browser (Vercel's serverless filesystem is read-only).
+    try {
+      const stored = loadThreads();
 
-    async function loadChats() {
-      try {
-        const response = await fetch("/api/chats", { cache: "no-store" });
-        const data = (await response.json()) as ChatsResponse;
+      if (stored.length > 0) {
+        setThreads(stored);
+        setCurrentChatId(stored[0].id);
+        setMode(stored[0].mode);
+        setStarterFallback(stored[0].starterLine);
+      } else {
+        const starterLine = pickStarterLine(bootModeRef.current);
+        const thread = createThread({
+          mode: bootModeRef.current,
+          starterLine,
+        });
 
-        if (!response.ok) {
-          throw new Error(data.error ?? "Unable to load chats.");
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        const nextThreads = data.threads ?? [];
-
-        if (nextThreads.length > 0) {
-          setThreads(nextThreads);
-          setCurrentChatId(nextThreads[0].id);
-          setMode(nextThreads[0].mode);
-          setStarterFallback(nextThreads[0].starterLine);
-        } else {
-          const starterLine = pickStarterLine(bootModeRef.current);
-          setStarterFallback(starterLine);
-
-          const createResponse = await fetch("/api/chats", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mode: bootModeRef.current, starterLine }),
-          });
-          const createData = (await createResponse.json()) as ChatsResponse;
-
-          if (!createResponse.ok || !createData.thread) {
-            throw new Error(createData.error ?? "Unable to create a chat.");
-          }
-
-          if (cancelled) {
-            return;
-          }
-
-          setThreads([createData.thread]);
-          setCurrentChatId(createData.thread.id);
-          setMode(createData.thread.mode);
-          setStarterFallback(createData.thread.starterLine);
-        }
-      } catch (caughtError) {
-        if (!cancelled) {
-          setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "Unable to load chats.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingChats(false);
-        }
+        setThreads([thread]);
+        setCurrentChatId(thread.id);
+        setMode(thread.mode);
+        setStarterFallback(thread.starterLine);
       }
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to load chats.",
+      );
+    } finally {
+      setIsLoadingChats(false);
     }
-
-    void loadChats();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -491,20 +455,15 @@ export function ChatApp() {
       title?: string;
     },
   ) {
-    const response = await fetch(`/api/chats/${threadId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = (await response.json()) as ChatsResponse;
+    const thread = updateThread(threadId, payload);
 
-    if (!response.ok || !data.thread) {
-      throw new Error(data.error ?? "Unable to update the chat.");
+    if (!thread) {
+      throw new Error("Unable to update the chat.");
     }
 
-    mergeThread(data.thread);
+    mergeThread(thread);
 
-    return data.thread;
+    return thread;
   }
 
   async function createNewChat(nextMode = mode) {
@@ -516,21 +475,12 @@ export function ChatApp() {
     setStarterFallback(starterLine);
 
     try {
-      const response = await fetch("/api/chats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: nextMode, starterLine }),
-      });
-      const data = (await response.json()) as ChatsResponse;
+      const thread = createThread({ mode: nextMode, starterLine });
 
-      if (!response.ok || !data.thread) {
-        throw new Error(data.error ?? "Unable to create a chat.");
-      }
+      mergeThread(thread, true);
+      setMode(thread.mode);
 
-      mergeThread(data.thread, true);
-      setMode(data.thread.mode);
-
-      return data.thread;
+      return thread;
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -869,7 +819,7 @@ export function ChatApp() {
 
     const remaining = threads.filter((thread) => thread.id !== threadId);
 
-    // Optimistically remove from the list.
+    // Remove from the list and storage.
     setThreads(remaining);
     setError(null);
     setNotice(null);
@@ -884,20 +834,9 @@ export function ChatApp() {
     }
 
     try {
-      const response = await fetch(`/api/chats/${threadId}`, {
-        method: "DELETE",
-      });
+      deleteThread(threadId);
 
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-
-        throw new Error(data?.error ?? "Unable to delete the chat.");
-      }
-
-      // Only start a fresh chat after the delete has fully committed, so the
-      // two writes never race on the store file.
+      // Start a fresh chat if nothing is left.
       if (wasActive && remaining.length === 0) {
         await createNewChat(mode);
       }
@@ -929,51 +868,32 @@ export function ChatApp() {
       setBurstVersion((current) => current + 1);
     }
 
-    setThreads((current) =>
-      current.map((thread) => {
-        if (thread.messages.length > 0) {
-          return { ...thread, mode: nextMode };
-        }
-
-        const starterLine =
-          thread.id === currentThread?.id ? nextStarterLine : pickStarterLine(nextMode);
-
-        return {
-          ...thread,
-          mode: nextMode,
-          starterLine,
-          title: thread.title === thread.starterLine ? starterLine : thread.title,
-        };
-      }),
-    );
-
-    void (async () => {
-      try {
-        const response = await fetch("/api/chats", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: nextMode }),
-        });
-        const data = (await response.json()) as ChatsResponse;
-
-        if (!response.ok || !data.threads) {
-          throw new Error(data.error ?? "Unable to switch chat mode.");
-        }
-
-        setThreads(data.threads);
-        const activeThread = data.threads.find((thread) => thread.id === currentChatId) ?? null;
-
-        if (activeThread) {
-          setStarterFallback(activeThread.starterLine);
-        }
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to switch chat mode.",
-        );
+    const nextThreads = threads.map((thread) => {
+      if (thread.messages.length > 0) {
+        return { ...thread, mode: nextMode };
       }
-    })();
+
+      const starterLine =
+        thread.id === currentThread?.id ? nextStarterLine : pickStarterLine(nextMode);
+
+      return {
+        ...thread,
+        mode: nextMode,
+        starterLine,
+        title: thread.title === thread.starterLine ? starterLine : thread.title,
+      };
+    });
+
+    setThreads(nextThreads);
+
+    // Persist the mode (and refreshed starter lines) for every thread.
+    for (const thread of nextThreads) {
+      updateThread(thread.id, {
+        mode: thread.mode,
+        starterLine: thread.starterLine,
+        title: thread.title,
+      });
+    }
   }
 
   function openExportDialog() {

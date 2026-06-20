@@ -1,8 +1,11 @@
 import "server-only";
 
+import nodemailer from "nodemailer";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 
 import {
+  EMAIL_FROM_ADDRESS,
+  EMAIL_FROM_NAME,
   MEGATHON_COPY,
   getModeAppName,
 } from "@/lib/chat-config";
@@ -524,85 +527,68 @@ export async function emailChatPdf({
   pdfBytes: Buffer;
   mode: ChatMode;
 }) {
-  const apiKey = process.env.RESEND_API_KEY ?? "";
-  const from = process.env.RESEND_FROM ?? "";
+  // SMTP credentials. Defaults target Gmail SMTP, but the SMTP_* vars work for
+  // any provider. Legacy OUTLOOK_* vars are still honored as a fallback.
+  const user =
+    process.env.SMTP_USER ?? process.env.OUTLOOK_USER ?? EMAIL_FROM_ADDRESS;
+  const pass = process.env.SMTP_PASSWORD ?? process.env.OUTLOOK_PASSWORD ?? "";
+  const host =
+    process.env.SMTP_HOST ?? process.env.OUTLOOK_SMTP_HOST ?? "smtp.gmail.com";
+  const port = Number(
+    process.env.SMTP_PORT ?? process.env.OUTLOOK_SMTP_PORT ?? "465",
+  );
 
-  if (!apiKey) {
+  if (!pass) {
     return {
       sent: false,
-      error: "Email sending is not configured yet. Set RESEND_API_KEY on the server.",
+      error:
+        "Email sending is not configured yet. Set SMTP_PASSWORD on the server.",
     };
   }
 
-  if (!from) {
-    return {
-      sent: false,
-      error: "Email sending is not configured yet. Set RESEND_FROM to a verified Resend sender.",
-    };
-  }
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    // 587 uses STARTTLS (secure=false); 465 uses implicit TLS (secure=true).
+    secure: port === 465,
+    auth: { user, pass },
+  });
 
   try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [email],
-        subject: `${getModeAppName(mode)} transcript from ${getModeLabel(mode)}`,
-        text: [
-          `Your ${getModeAppName(mode)} conversation is attached.`,
-          "",
-          MEGATHON_COPY.title,
-          MEGATHON_COPY.subtitle,
-          "",
-          ...MEGATHON_COPY.manifesto,
-        ].join("\n"),
-        html: `
-          <div style="font-family:Arial,sans-serif;color:#18120f;line-height:1.6">
-            <h1 style="margin:0 0 12px;font-size:24px">${getModeAppName(mode)}</h1>
-            <p style="margin:0 0 16px">Your conversation transcript is attached as a PDF.</p>
-            <div style="padding:18px 20px;border-radius:18px;background:#0f0d0c;color:#f8f7f3">
-              <div style="font-size:28px;font-weight:700;letter-spacing:0.04em">${MEGATHON_COPY.title}</div>
-              <div style="margin-top:8px;color:#e7e2d9">${MEGATHON_COPY.subtitle}</div>
-              <div style="margin-top:14px;color:#d8c26d;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase">Built with</div>
-              <div style="margin-top:6px">${MEGATHON_COPY.builtWith.join(" • ")}</div>
-            </div>
+    await transporter.sendMail({
+      // Gmail forces the From header to the authenticated account, so we send
+      // as the SMTP user with the app's display name.
+      from: `"${EMAIL_FROM_NAME}" <${user}>`,
+      to: email,
+      subject: `${getModeAppName(mode)} transcript from ${getModeLabel(mode)}`,
+      text: [
+        `Your ${getModeAppName(mode)} conversation is attached.`,
+        "",
+        MEGATHON_COPY.title,
+        MEGATHON_COPY.subtitle,
+        "",
+        ...MEGATHON_COPY.manifesto,
+      ].join("\n"),
+      html: `
+        <div style="font-family:Arial,sans-serif;color:#18120f;line-height:1.6">
+          <h1 style="margin:0 0 12px;font-size:24px">${getModeAppName(mode)}</h1>
+          <p style="margin:0 0 16px">Your conversation transcript is attached as a PDF.</p>
+          <div style="padding:18px 20px;border-radius:18px;background:#0f0d0c;color:#f8f7f3">
+            <div style="font-size:28px;font-weight:700;letter-spacing:0.04em">${MEGATHON_COPY.title}</div>
+            <div style="margin-top:8px;color:#e7e2d9">${MEGATHON_COPY.subtitle}</div>
+            <div style="margin-top:14px;color:#d8c26d;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase">Built with</div>
+            <div style="margin-top:6px">${MEGATHON_COPY.builtWith.join(" • ")}</div>
           </div>
-        `,
-        attachments: [
-          {
-            filename: getFileName(mode),
-            content: pdfBytes.toString("base64"),
-          },
-        ],
-      }),
+        </div>
+      `,
+      attachments: [
+        {
+          filename: getFileName(mode),
+          content: pdfBytes,
+          contentType: "application/pdf",
+        },
+      ],
     });
-
-    if (!response.ok) {
-      let message = "Email delivery failed.";
-
-      try {
-        const data = (await response.json()) as {
-          message?: string;
-          error?: string;
-          name?: string;
-        };
-        message = data.message ?? data.error ?? data.name ?? message;
-      } catch {
-        const text = await response.text();
-        if (text) {
-          message = text;
-        }
-      }
-
-      return {
-        sent: false,
-        error: message,
-      };
-    }
   } catch (error) {
     return {
       sent: false,

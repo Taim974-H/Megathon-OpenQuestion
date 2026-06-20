@@ -1147,26 +1147,18 @@ export function ChatApp() {
 
             <div className="flex flex-wrap items-center justify-end gap-2">
               {isSpeaking ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={stopSpeaking}
-                    className="header-control-button md:hidden"
-                    aria-label="Stop the spoken reply"
-                    title="Stop speaking"
-                  >
+                <button
+                  type="button"
+                  onClick={stopSpeaking}
+                  className="header-action"
+                  aria-label="Stop the spoken reply"
+                  title="Stop speaking"
+                >
+                  <span className="header-action-icon" aria-hidden="true">
                     <SoundOffIcon />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={stopSpeaking}
-                    className="offer-button max-md:hidden"
-                    aria-label="Stop the spoken reply"
-                    title="Stop speaking"
-                  >
-                    <span>Stop voice</span>
-                  </button>
-                </>
+                  </span>
+                  <span className="header-action-label">Stop voice</span>
+                </button>
               ) : null}
               <button
                 type="button"
@@ -1174,52 +1166,40 @@ export function ChatApp() {
                   setIsSoundOn((current) => !current);
                   stopSpeaking();
                 }}
-                className="header-control-button md:hidden"
+                className="header-action"
                 aria-pressed={isSoundOn}
                 aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
                 title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
               >
-                {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSoundOn((current) => !current);
-                  stopSpeaking();
-                }}
-                className="offer-button max-md:hidden"
-                aria-pressed={isSoundOn}
-                aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
-                title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
-              >
-                <span>{isSoundOn ? "Sound on" : "Sound off"}</span>
+                <span className="header-action-icon" aria-hidden="true">
+                  {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
+                </span>
+                <span className="header-action-label">
+                  {isSoundOn ? "Sound on" : "Sound off"}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={openExportDialog}
-                className="header-control-button md:hidden"
+                className="header-action"
                 aria-label="Export transcript"
                 title="Export"
               >
-                <ExportIcon />
-              </button>
-              <button
-                type="button"
-                onClick={openExportDialog}
-                className="offer-button max-md:hidden"
-              >
-                <span>Export</span>
+                <span className="header-action-icon" aria-hidden="true">
+                  <ExportIcon />
+                </span>
+                <span className="header-action-label">Export</span>
               </button>
               <a
                 href="/cube"
-                className="header-cta-button header-cta-icon md:hidden"
+                className="header-action header-action-cta"
                 aria-label="Open conversation mode"
                 title="Conversation"
               >
-                <MicIcon />
-              </a>
-              <a href="/cube" className="header-cta-button max-md:hidden">
-                <span>Conversation</span>
+                <span className="header-action-icon" aria-hidden="true">
+                  <MicIcon />
+                </span>
+                <span className="header-action-label">Conversation</span>
               </a>
             </div>
           </header>

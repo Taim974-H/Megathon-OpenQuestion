@@ -106,6 +106,22 @@ function TrashIcon() {
   );
 }
 
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function SoundOnIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -239,6 +255,7 @@ export function ChatApp() {
   const [isExporting, setIsExporting] = useState(false);
   const [isLoadingChats, setIsLoadingChats] = useState(true);
   const [burstVersion, setBurstVersion] = useState(0);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isSoundOn, setIsSoundOn] = useState(readSoundPreference);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const isSoundOnRef = useRef(isSoundOn);
@@ -529,6 +546,7 @@ export function ChatApp() {
 
       mergeThread(data.thread, true);
       setMode(data.thread.mode);
+      setIsMobileNavOpen(false);
 
       return data.thread;
     } catch (caughtError) {
@@ -860,6 +878,7 @@ export function ChatApp() {
     setError(null);
     setNotice(null);
     setStarterFallback(thread.starterLine);
+    setIsMobileNavOpen(false);
   }
 
   async function deleteChat(threadId: string) {
@@ -985,6 +1004,7 @@ export function ChatApp() {
     setExportEmail("");
     setIsExportOpen(true);
     setError(null);
+    setIsMobileNavOpen(false);
   }
 
   async function handleExportSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1061,7 +1081,7 @@ export function ChatApp() {
   const starterLine = currentThread?.starterLine ?? starterFallback;
 
   return (
-    <main className="grain app-shell h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+    <main className="grain app-shell h-[100dvh] overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       {mode === "unicorn" ? (
         <>
           <div className="ambient-sparkles">
@@ -1103,9 +1123,32 @@ export function ChatApp() {
         </>
       ) : null}
 
-      <div className="mx-auto grid h-screen w-full max-w-[1440px] grid-cols-1 overflow-hidden md:grid-cols-[272px_minmax(0,1fr)]">
-        <aside className="left-rail flex h-screen min-h-0 flex-col gap-4 overflow-hidden px-3 pb-4 pt-3 sm:px-4">
-          <div className="px-2 text-xl font-semibold tracking-tight">{appName}</div>
+      <div className="mx-auto grid h-[100dvh] w-full max-w-[1440px] grid-cols-1 overflow-hidden md:grid-cols-[272px_minmax(0,1fr)]">
+        {isMobileNavOpen ? (
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setIsMobileNavOpen(false)}
+            className="fixed inset-0 z-30 bg-black/28 backdrop-blur-[2px] md:hidden"
+          />
+        ) : null}
+
+        <aside
+          className={`left-rail fixed inset-y-0 left-0 z-40 flex w-[min(84vw,320px)] min-h-0 flex-col gap-4 overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.9rem+env(safe-area-inset-top))] shadow-2xl transition-transform duration-200 md:static md:z-auto md:h-[100dvh] md:w-auto md:translate-x-0 md:px-4 md:pb-4 md:pt-3 md:shadow-none ${
+            isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 px-2">
+            <div className="text-xl font-semibold tracking-tight">{appName}</div>
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen(false)}
+              className="glass-button inline-flex h-10 w-10 items-center justify-center rounded-[0.95rem] md:hidden"
+              aria-label="Close menu"
+            >
+              <CloseIcon />
+            </button>
+          </div>
 
           <button
             type="button"
@@ -1174,18 +1217,33 @@ export function ChatApp() {
           </div>
         </aside>
 
-        <div className="flex h-screen min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-4 pt-3 sm:px-6">
-          <header className="flex flex-wrap items-center justify-end gap-2 py-2">
+        <div className="flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:pb-4 md:pt-3">
+          <header className="flex items-center justify-between gap-2 py-2">
+            <div className="flex min-w-0 items-center gap-2 md:hidden">
+              <button
+                type="button"
+                onClick={() => setIsMobileNavOpen(true)}
+                className="header-control-button"
+                aria-label="Open navigation"
+                title="Open chats"
+              >
+                <MenuIcon />
+              </button>
+              <div className="truncate text-lg font-semibold tracking-tight">
+                {appName}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
             {isSpeaking ? (
               <button
                 type="button"
                 onClick={stopSpeaking}
-                className="offer-button"
+                className="header-control-button"
                 aria-label="Stop the spoken reply"
                 title="Stop speaking"
               >
                 <SoundOffIcon />
-                <span>Stop voice</span>
               </button>
             ) : null}
             <button
@@ -1194,26 +1252,27 @@ export function ChatApp() {
                 setIsSoundOn((current) => !current);
                 stopSpeaking();
               }}
-              className="offer-button"
+              className="header-control-button"
               aria-pressed={isSoundOn}
               aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}
               title={isSoundOn ? "Horse sounds on" : "Horse sounds off"}
             >
               {isSoundOn ? <SoundOnIcon /> : <SoundOffIcon />}
-              <span>{isSoundOn ? "Sound on" : "Sound off"}</span>
             </button>
             <button
               type="button"
               onClick={openExportDialog}
-              className="offer-button"
+              className="header-control-button"
+              aria-label="Export transcript"
+              title="Export"
             >
               <ExportIcon />
-              <span>Export</span>
             </button>
+            </div>
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 overflow-y-auto px-1 pb-4 pt-6 sm:px-3">
+            <div className="flex-1 overflow-y-auto px-1 pb-4 pt-4 sm:px-3 sm:pt-6">
               {isLoadingChats ? (
                 <div className="mx-auto flex h-full w-full max-w-4xl items-center justify-center text-center text-sm text-[var(--muted)]">
                   Saddling up your chats...
@@ -1227,25 +1286,25 @@ export function ChatApp() {
                         alt={appName}
                         width={280}
                         height={190}
-                        className="h-[170px] w-[250px] rounded-[1.8rem] object-cover"
+                        className="h-[150px] w-[220px] rounded-[1.6rem] object-cover sm:h-[170px] sm:w-[250px] sm:rounded-[1.8rem]"
                         priority
                       />
                     ) : (
-                      <div className="flex h-[170px] w-[250px] items-center justify-center rounded-[1.8rem] text-[5.5rem]">
+                      <div className="flex h-[150px] w-[220px] items-center justify-center rounded-[1.6rem] text-[4.8rem] sm:h-[170px] sm:w-[250px] sm:rounded-[1.8rem] sm:text-[5.5rem]">
                         🦄
                       </div>
                     )}
                   </div>
-                  <h1 className="mt-8 text-5xl font-semibold tracking-tight sm:text-6xl">
+                  <h1 className="mt-6 text-4xl font-semibold tracking-tight sm:mt-8 sm:text-5xl md:text-6xl">
                     {starterLine}
                   </h1>
-                  <div className="mt-8 flex flex-wrap justify-center gap-3">
+                  <div className="mt-6 flex w-full max-w-xl flex-wrap justify-center gap-3 sm:mt-8">
                     {SUGGESTIONS[mode].map((suggestion) => (
                       <button
                         key={suggestion}
                         type="button"
                         onClick={() => setComposer(suggestion)}
-                        className="glass-chip"
+                        className="glass-chip w-full sm:w-auto"
                       >
                         {suggestion}
                       </button>
@@ -1287,7 +1346,7 @@ export function ChatApp() {
               )}
             </div>
 
-            <div className="px-1 pb-4 pt-2 sm:px-3">
+            <div className="px-1 pb-2 pt-2 sm:px-3 sm:pb-4">
               <div className="mx-auto w-full max-w-3xl">
                 <div className="mb-3 flex min-h-6 flex-wrap items-center gap-2 text-sm">
                   {notice ? <span className="status-pill status-pill-notice">{notice}</span> : null}
@@ -1329,8 +1388,8 @@ export function ChatApp() {
       </div>
 
       {isExportOpen ? (
-        <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="glass-modal w-full max-w-md rounded-[2rem] p-6">
+        <div className="modal-backdrop fixed inset-0 z-50 flex items-end justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-4 sm:items-center sm:px-4 sm:pb-4">
+          <div className="glass-modal max-h-[min(82dvh,38rem)] w-full max-w-md overflow-y-auto rounded-[1.75rem] p-5 sm:rounded-[2rem] sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">

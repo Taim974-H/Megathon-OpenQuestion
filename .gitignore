@@ -1,0 +1,213 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+*.bak
+*.tmp
+*~
+
+# Node.js / Web apps
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+.npm/
+bower_components/
+.dist/
+.build/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python / Data Science / AI
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+.env.*
+venv/
+venv3/
+env/
+ENV/
+.venv/
+.ipynb_checkpoints/
+*.ipynb
+*.keras
+*.h5
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.model
+*.pickle
+*.pkl
+*.joblib
+*.csv
+*.tsv
+*.data
+*.npz
+*.npy
+*.hdf5
+
+# Jupyter / notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Mobile apps / Android
+.gradle/
+/local.properties
+/.idea/
+*.iml
+/build/
+/captures/
+.externalNativeBuild/
+**/build/
+*.keystore
+*.jks
+app/*.keystore
+app/*.jks
+
+# iOS / macOS
+DerivedData/
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xcworkspace
+*.xcuserstate
+*.moved-aside
+*.xcdebugger
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Flutter / React Native
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.dart_tool/
+.flutter-plugins
+.generated/
+*.flutter-plugins
+*.flutter-plugins-dependencies
+.gradle/
+
+# Build outputs
+/dist
+/build
+/out
+/tmp
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and secret files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+secrets.json
+credentials.json
+
+# Misc
+*.DS_Store
+*.pem
+*.key
+*.crt
+*.p12
+
+# Data / large files
+*.zip
+*.gz
+*.tar
+*.rar
+*.7z
+*.bak
+*.cache
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# Generated AI / model artifacts
+*.pb
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.tflite
+*.h5
+*.joblib
+*.torch
+*.mlmodel
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Terraform / infrastructure
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# JetBrains IDEs
+*.iml
+.idea/
+
+# Visual Studio Code settings
+.vscode/
+
+# Storybook
+storybook-static/
+
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# Linux
+*~
+
+# Ignore datasets and outputs by default
+data/
+outputs/
+models/
+checkpoints/
+logs/
+results/
+
+# Optional: keep data or model files tracked if needed
+!data/.gitkeep
+!models/.gitkeep
+!logs/.gitkeep

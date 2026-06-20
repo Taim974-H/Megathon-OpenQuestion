@@ -160,6 +160,10 @@ const HORSE_SOUNDS = Array.from(
   (_, index) => `/sounds/horse-${index + 1}.mp3`,
 );
 const SOUND_STORAGE_KEY = "horsegpt-sound-on";
+// Paced typewriter reveal so the response reads gradually rather than blasting
+// in all at once. ~3 chars every 22ms ≈ 135 chars/sec.
+const STREAM_CHARS_PER_TICK = 3;
+const STREAM_TICK_MS = 22;
 
 function readSoundPreference() {
   if (typeof window === "undefined") {
@@ -229,8 +233,10 @@ export function ChatApp() {
   const [isLoadingChats, setIsLoadingChats] = useState(true);
   const [burstVersion, setBurstVersion] = useState(0);
   const [isSoundOn, setIsSoundOn] = useState(readSoundPreference);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const isSoundOnRef = useRef(isSoundOn);
   const soundCacheRef = useRef<Record<string, HTMLAudioElement>>({});
+  const speechAudioRef = useRef<HTMLAudioElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -355,6 +361,62 @@ export function ChatApp() {
     });
   }
 
+  // Speak the assistant reply aloud via the TTS route. Used for the voice loop.
+  async function speakText(text: string) {
+    const trimmed = text.trim();
+
+    if (!trimmed || typeof Audio === "undefined") {
+      return;
+    }
+
+    // Stop any reply already being spoken.
+    if (speechAudioRef.current) {
+      speechAudioRef.current.pause();
+      speechAudioRef.current = null;
+    }
+
+    try {
+      const response = await fetch("/api/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: trimmed, mode }),
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+
+      speechAudioRef.current = audio;
+      setIsSpeaking(true);
+
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+        if (speechAudioRef.current === audio) {
+          speechAudioRef.current = null;
+        }
+        setIsSpeaking(false);
+      };
+
+      audio.addEventListener("ended", cleanup);
+      audio.addEventListener("error", cleanup);
+      await audio.play().catch(cleanup);
+    } catch {
+      setIsSpeaking(false);
+    }
+  }
+
+  function stopSpeaking() {
+    if (speechAudioRef.current) {
+      speechAudioRef.current.pause();
+      speechAudioRef.current = null;
+    }
+    setIsSpeaking(false);
+  }
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, notice, error]);
@@ -377,6 +439,7 @@ export function ChatApp() {
       }
 
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      speechAudioRef.current?.pause();
     };
   }, []);
 
@@ -472,8 +535,9 @@ export function ChatApp() {
     }
   }
 
-  async function sendMessage(rawText?: string) {
+  async function sendMessage(rawText?: string, options?: { speakReply?: boolean }) {
     const nextText = (rawText ?? composer).trim();
+    const speakReply = options?.speakReply ?? false;
 
     if (!nextText || isSending || isExporting || isLoadingChats) {
       return;
@@ -541,6 +605,12 @@ export function ChatApp() {
       const decoder = new TextDecoder();
       let assistantText = "";
       let buffer = "";
+      // `targetText` is everything received so far; `revealedText` is what the
+      // typewriter has shown. The paced timer walks revealed toward target so
+      // the text appears gradually instead of in one fast burst.
+      let targetText = "";
+      let revealedText = "";
+      let streamDone = false;
 
       const replaceAssistant = (content: string) => {
         startTransition(() => {
@@ -563,17 +633,41 @@ export function ChatApp() {
         });
       };
 
+      const typewriter = new Promise<void>((resolve) => {
+        const tick = () => {
+          if (revealedText.length < targetText.length) {
+            // Reveal a few characters per frame for a steady, readable pace.
+            const nextLength = Math.min(
+              targetText.length,
+              revealedText.length + STREAM_CHARS_PER_TICK,
+            );
+            revealedText = targetText.slice(0, nextLength);
+            replaceAssistant(revealedText);
+            window.setTimeout(tick, STREAM_TICK_MS);
+            return;
+          }
+
+          if (streamDone) {
+            resolve();
+            return;
+          }
+
+          // Caught up but more is still arriving; poll again shortly.
+          window.setTimeout(tick, STREAM_TICK_MS);
+        };
+
+        window.setTimeout(tick, STREAM_TICK_MS);
+      });
+
       const onEvent = (event: ChatStreamEvent) => {
         if (event.type === "delta") {
           assistantText += event.delta;
-          replaceAssistant(assistantText);
+          targetText = assistantText;
         }
 
         if (event.type === "final") {
           assistantText = event.content;
-          replaceAssistant(event.content);
-          // Another random whinny once the full response has landed.
-          void playHorseSound();
+          targetText = event.content;
         }
 
         if (event.type === "notice") {
@@ -599,6 +693,18 @@ export function ChatApp() {
 
       if (tail) {
         onEvent(JSON.parse(tail) as ChatStreamEvent);
+      }
+
+      // Let the typewriter finish revealing the full text before continuing.
+      streamDone = true;
+      await typewriter;
+      assistantText = targetText;
+
+      // Random whinny once the full response has finished revealing.
+      void playHorseSound();
+      // Speak the reply aloud when the turn was started by voice.
+      if (speakReply) {
+        void speakText(assistantText);
       }
 
       const finalAssistantMessage: ChatMessage = {
@@ -659,10 +765,9 @@ export function ChatApp() {
         throw new Error(data.error ?? "The recorder came back empty.");
       }
 
-      setComposer((current) =>
-        current ? `${current.trimEnd()} ${transcript}` : transcript,
-      );
-      setNotice("Voice note added.");
+      setNotice(null);
+      // Conversational voice loop: send the spoken message and speak the reply.
+      void sendMessage(transcript, { speakReply: true });
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -973,9 +1078,24 @@ export function ChatApp() {
 
         <div className="flex min-h-screen min-w-0 flex-col px-4 pb-4 pt-3 sm:px-6">
           <header className="flex flex-wrap items-center justify-end gap-2 py-2">
+            {isSpeaking ? (
+              <button
+                type="button"
+                onClick={stopSpeaking}
+                className="offer-button"
+                aria-label="Stop the spoken reply"
+                title="Stop speaking"
+              >
+                <SoundOffIcon />
+                <span>Stop voice</span>
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={() => setIsSoundOn((current) => !current)}
+              onClick={() => {
+                setIsSoundOn((current) => !current);
+                stopSpeaking();
+              }}
               className="offer-button"
               aria-pressed={isSoundOn}
               aria-label={isSoundOn ? "Mute horse sounds" : "Unmute horse sounds"}

@@ -108,3 +108,17 @@ export async function updateChatThread(
 
   return nextThread;
 }
+
+export async function deleteChatThread(id: string) {
+  const store = await readStore();
+  const nextThreads = store.threads.filter((thread) => thread.id !== id);
+
+  if (nextThreads.length === store.threads.length) {
+    return false;
+  }
+
+  store.threads = nextThreads;
+  await writeStore(store);
+
+  return true;
+}

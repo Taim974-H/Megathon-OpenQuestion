@@ -99,6 +99,17 @@ function MicIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 7h16" strokeLinecap="round" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" strokeLinecap="round" />
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 11v6M14 11v6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function SoundOnIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -856,6 +867,49 @@ export function ChatApp() {
     setStarterFallback(thread.starterLine);
   }
 
+  async function deleteChat(threadId: string) {
+    if (isSending || isExporting) {
+      return;
+    }
+
+    const remaining = threads.filter((thread) => thread.id !== threadId);
+
+    // Optimistically remove from the list.
+    setThreads(remaining);
+    setError(null);
+    setNotice(null);
+
+    // If the open chat was deleted, fall back to another or start fresh.
+    if (currentChatId === threadId) {
+      if (remaining.length > 0) {
+        switchToThread(remaining[0]);
+      } else {
+        setCurrentChatId(null);
+        void createNewChat(mode);
+      }
+    }
+
+    try {
+      const response = await fetch(`/api/chats/${threadId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+
+        throw new Error(data?.error ?? "Unable to delete the chat.");
+      }
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to delete the chat.",
+      );
+    }
+  }
+
   function switchMode(nextMode: ChatMode) {
     if (nextMode === mode) {
       return;
@@ -973,7 +1027,7 @@ export function ChatApp() {
   const starterLine = currentThread?.starterLine ?? starterFallback;
 
   return (
-    <main className="grain app-shell min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="grain app-shell h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       {mode === "unicorn" ? (
         <>
           <div className="ambient-sparkles">
@@ -1015,8 +1069,8 @@ export function ChatApp() {
         </>
       ) : null}
 
-      <div className="mx-auto grid min-h-screen w-full max-w-[1440px] grid-cols-1 md:grid-cols-[272px_minmax(0,1fr)]">
-        <aside className="left-rail flex min-h-screen flex-col gap-4 px-3 pb-4 pt-3 sm:px-4">
+      <div className="mx-auto grid h-screen w-full max-w-[1440px] grid-cols-1 overflow-hidden md:grid-cols-[272px_minmax(0,1fr)]">
+        <aside className="left-rail flex h-screen min-h-0 flex-col gap-4 overflow-hidden px-3 pb-4 pt-3 sm:px-4">
           <div className="px-2 text-xl font-semibold tracking-tight">{appName}</div>
 
           <button
@@ -1029,16 +1083,26 @@ export function ChatApp() {
 
           <div className="left-rail-list flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
             {threads.map((thread) => (
-              <button
-                key={thread.id}
-                type="button"
-                onClick={() => switchToThread(thread)}
-                className={`left-rail-chat truncate ${
-                  thread.id === currentChatId ? "left-rail-chat-active" : ""
-                }`}
-              >
-                {thread.title}
-              </button>
+              <div key={thread.id} className="left-rail-row group">
+                <button
+                  type="button"
+                  onClick={() => switchToThread(thread)}
+                  className={`left-rail-chat truncate ${
+                    thread.id === currentChatId ? "left-rail-chat-active" : ""
+                  }`}
+                >
+                  {thread.title}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void deleteChat(thread.id)}
+                  className="left-rail-delete"
+                  aria-label="Delete chat"
+                  title="Delete chat"
+                >
+                  <TrashIcon />
+                </button>
+              </div>
             ))}
           </div>
 
@@ -1076,7 +1140,7 @@ export function ChatApp() {
           </div>
         </aside>
 
-        <div className="flex min-h-screen min-w-0 flex-col px-4 pb-4 pt-3 sm:px-6">
+        <div className="flex h-screen min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-4 pt-3 sm:px-6">
           <header className="flex flex-wrap items-center justify-end gap-2 py-2">
             {isSpeaking ? (
               <button

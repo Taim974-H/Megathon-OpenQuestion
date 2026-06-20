@@ -67,10 +67,13 @@
 
 html {
   background: var(--background);
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background:
     var(--hero-glow),
     linear-gradient(180deg, rgba(255, 255, 255, 0.54), transparent 32%),
@@ -162,7 +165,16 @@ input {
   scrollbar-width: thin;
 }
 
+.left-rail-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .left-rail-chat {
+  flex: 1 1 auto;
+  min-width: 0;
   border-radius: 1rem;
   padding: 0.8rem 0.9rem;
   text-align: left;
@@ -182,6 +194,32 @@ input {
 .left-rail-chat-active {
   background: rgba(255, 255, 255, 0.42);
   color: var(--foreground);
+}
+
+.left-rail-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.75rem;
+  color: var(--muted);
+  opacity: 0;
+  transition:
+    opacity 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.left-rail-row:hover .left-rail-delete,
+.left-rail-delete:focus-visible {
+  opacity: 1;
+}
+
+.left-rail-delete:hover {
+  background: rgba(220, 38, 38, 0.16);
+  color: #dc2626;
 }
 
 .glass-panel,

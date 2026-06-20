@@ -1,9 +1,30 @@
 import { NextResponse } from "next/server";
 
-import { updateChatThread } from "@/lib/chat-store";
+import { deleteChatThread, updateChatThread } from "@/lib/chat-store";
 import { normalizeMode, normalizeMessages } from "@/lib/horse";
 
 export const runtime = "nodejs";
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const deleted = await deleteChatThread(id);
+
+    if (!deleted) {
+      return NextResponse.json({ error: "Chat not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ deleted: true });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to delete the chat.";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
 
 export async function PATCH(
   request: Request,

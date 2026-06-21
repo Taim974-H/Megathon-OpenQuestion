@@ -75,9 +75,17 @@ body {
   height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
+  /* Platform backdrop: the brand background image, dimmed by a translucent
+     wash of --background so chat text stays readable on top of it. The
+     hero glow and top white fade sit above the image. */
   background:
     var(--hero-glow),
     linear-gradient(180deg, rgba(255, 255, 255, 0.54), transparent 32%),
+    linear-gradient(
+      color-mix(in srgb, var(--background) 78%, transparent),
+      color-mix(in srgb, var(--background) 78%, transparent)
+    ),
+    url("/unicorn_assets/background.png") center / cover no-repeat fixed,
     var(--background);
   color: var(--foreground);
   font-family: var(--app-font-sans);

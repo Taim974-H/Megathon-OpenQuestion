@@ -284,10 +284,20 @@ input {
   background: var(--surface-strong);
 }
 
+/* White text with a soft drop shadow, for labels that sit directly on the busy
+   background image (logo name, "Change mode"). A single shadow keeps them
+   readable without the heavy outlined look. */
+.outlined-text {
+  color: #fff;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
 .sidebar-label {
   font-size: 0.92rem;
-  font-weight: 500;
-  color: var(--accent);
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .emoji-slider {

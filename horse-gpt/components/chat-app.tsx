@@ -1068,7 +1068,7 @@ export function ChatApp({ debug = false }: ChatAppProps) {
           }`}
         >
           <div className="flex items-center justify-between gap-3 px-2">
-            <div className="text-xl font-semibold tracking-tight">{appName}</div>
+            <div className="outlined-text text-xl tracking-tight">{appName}</div>
             <button
               type="button"
               onClick={() => setIsMobileNavOpen(false)}
@@ -1227,12 +1227,13 @@ export function ChatApp({ debug = false }: ChatAppProps) {
                   Saddling up your chats...
                 </div>
               ) : messages.length === 0 ? (
-                <div className="mx-auto flex h-full w-full max-w-2xl flex-col items-center justify-center gap-[clamp(1rem,3vh,2rem)] overflow-hidden py-2 text-center">
+                <div className="mx-auto flex h-full min-h-0 w-full max-w-2xl flex-col items-center justify-start gap-[clamp(0.75rem,2.5vh,2rem)] overflow-y-auto py-4 text-center [&>*:first-child]:mt-auto [&>*:last-child]:mb-auto">
                   <div className="hero-orb shrink-0">
                     {/* Horse mode: static horse face (horse_assets). Unicorn
                         mode: the looping transparent-background unicorn video
-                        (unicorn_assets). Both use object-contain so the whole
-                        subject stays visible on the app background. */}
+                        (unicorn_assets). Sizes adapt to the viewport height so
+                        the subject scales down on short screens instead of being
+                        clipped; object-contain keeps the whole subject visible. */}
                     {mode === "unicorn" ? (
                       <video
                         key="hero-unicorn-video"
@@ -1241,7 +1242,7 @@ export function ChatApp({ debug = false }: ChatAppProps) {
                         muted
                         loop
                         playsInline
-                        className="h-[clamp(140px,22vh,200px)] w-[clamp(200px,30vh,280px)] object-contain"
+                        className="h-[clamp(120px,20vh,200px)] w-[clamp(160px,26vh,260px)] object-contain"
                       >
                         <source
                           src="/unicorn_assets/unicorn_alpha.webm"
@@ -1254,7 +1255,7 @@ export function ChatApp({ debug = false }: ChatAppProps) {
                         key="hero-horse-image"
                         src="/horse_assets/horse_face.png"
                         alt={appName}
-                        className="h-[clamp(140px,22vh,200px)] w-[clamp(200px,30vh,280px)] object-contain"
+                        className="h-[clamp(130px,24vh,240px)] w-[clamp(190px,32vh,320px)] object-contain"
                       />
                     )}
                   </div>

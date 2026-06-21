@@ -1293,15 +1293,6 @@ export function ChatApp() {
                   </div>
                 ) : null}
                 <form onSubmit={handleSubmit} className="glass-composer">
-                  <button
-                    type="button"
-                    onClick={toggleRecording}
-                    disabled={isSending || isTranscribing || isExporting}
-                    className="icon-button"
-                    aria-label="Record voice input"
-                  >
-                    <MicIcon />
-                  </button>
                   <textarea
                     ref={textareaRef}
                     value={composer}

@@ -5,7 +5,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
@@ -55,23 +54,6 @@ const STARTER_LINES: Record<ChatMode, string[]> = {
   horse: [...HORSE_STARTER_LINES],
   unicorn: [...UNICORN_STARTER_LINES],
 };
-const SPARKLE_SEEDS = Array.from({ length: 18 }, (_, index) => ({
-  left: (index * 19) % 100,
-  top: (index * 23) % 100,
-  size: 5 + (index % 6),
-  hue: (index * 37) % 360,
-  delay: index * 0.35,
-  speed: 1 + (index % 4),
-}));
-const BURST_SEEDS = Array.from({ length: 24 }, (_, index) => ({
-  left: 14 + ((index * 17) % 72),
-  top: 10 + ((index * 11) % 60),
-  size: 7 + (index % 7),
-  hue: (index * 31) % 360,
-  delay: index,
-  driftX: (index % 2 === 0 ? 1 : -1) * (42 + (index % 4) * 18),
-  driftY: -36 - (index % 5) * 22,
-}));
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
 function ExportIcon() {
@@ -287,7 +269,6 @@ export function ChatApp() {
   const [exportEmail, setExportEmail] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [isLoadingChats] = useState(initialChatState.isLoadingChats);
-  const [burstVersion, setBurstVersion] = useState(0);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isSoundOn, setIsSoundOn] = useState(readSoundPreference);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -883,10 +864,6 @@ export function ChatApp() {
     setError(null);
     setNotice(nextMode === "unicorn" ? "Unicorn mode engaged." : "Horse mode engaged.");
 
-    if (nextMode === "unicorn") {
-      setBurstVersion((current) => current + 1);
-    }
-
     const nextThreads = threads.map((thread) => {
       if (thread.messages.length > 0) {
         return { ...thread, mode: nextMode };
@@ -1002,47 +979,6 @@ export function ChatApp() {
 
   return (
     <main className="grain app-shell h-[100dvh] overflow-hidden bg-transparent text-[var(--foreground)]">
-      {mode === "unicorn" ? (
-        <>
-          <div className="ambient-sparkles">
-            <div className="ambient-rainbow" />
-            {SPARKLE_SEEDS.map((seed, index) => (
-              <span
-                key={`ambient-${index}`}
-                style={
-                  {
-                    "--left": seed.left,
-                    "--top": seed.top,
-                    "--size": seed.size,
-                    "--hue": seed.hue,
-                    "--delay": seed.delay,
-                    "--speed": seed.speed,
-                  } as CSSProperties
-                }
-              />
-            ))}
-          </div>
-          <div key={burstVersion} className="rainbow-burst">
-            {BURST_SEEDS.map((seed, index) => (
-              <span
-                key={`burst-${burstVersion}-${index}`}
-                style={
-                  {
-                    "--left": seed.left,
-                    "--top": seed.top,
-                    "--size": seed.size,
-                    "--hue": seed.hue,
-                    "--delay": seed.delay,
-                    "--drift-x": seed.driftX,
-                    "--drift-y": seed.driftY,
-                  } as CSSProperties
-                }
-              />
-            ))}
-          </div>
-        </>
-      ) : null}
-
       <div className="mx-auto grid h-[100dvh] w-full max-w-[1440px] grid-cols-1 overflow-hidden md:grid-cols-[228px_minmax(0,1fr)] lg:grid-cols-[256px_minmax(0,1fr)] xl:grid-cols-[272px_minmax(0,1fr)]">
         {isMobileNavOpen ? (
           <button
@@ -1135,7 +1071,7 @@ export function ChatApp() {
           </div>
         </aside>
 
-        <div className="flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-4 pt-3 sm:px-6">
+        <div className="chat-column flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-4 pt-3 sm:px-6">
           <header className="flex items-center justify-between gap-2 py-2">
             <div className="flex min-w-0 items-center gap-2 md:hidden">
               <button

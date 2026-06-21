@@ -42,8 +42,8 @@ export const maxDuration = 60;
 const HORSE_IMAGE = path.join(
   process.cwd(),
   "public",
-  "horse_media",
-  "horse_background.png",
+  "horse_assets",
+  "background.png",
 );
 
 const DEFAULT_PROMPT =

@@ -75,18 +75,24 @@ body {
   height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
-  /* The brand background image is the complete app backdrop. It covers the
-     whole viewport and scales responsively to any device/orientation. A solid
-     --background color sits underneath only as a fallback before the image
-     loads or if it ever fails. */
+  /* Mode-specific brand background image is the complete app backdrop: it
+     covers the whole viewport and scales responsively to any device. A solid
+     --background color sits underneath only as a fallback. Horse is the
+     default (shown before hydration sets data-mode); unicorn overrides below. */
   background:
-    url("/unicorn_assets/background.png") center center / cover no-repeat fixed,
+    url("/horse_assets/background.png") center center / cover no-repeat fixed,
     var(--background);
   color: var(--foreground);
   font-family: var(--app-font-sans);
   transition:
     background 260ms ease,
     color 220ms ease;
+}
+
+:root[data-mode="unicorn"] body {
+  background:
+    url("/unicorn_assets/background.png") center center / cover no-repeat fixed,
+    var(--background);
 }
 
 button,

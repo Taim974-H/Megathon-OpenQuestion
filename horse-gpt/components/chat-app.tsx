@@ -1156,13 +1156,13 @@ export function ChatApp() {
               ) : messages.length === 0 ? (
                 <div className="mx-auto flex h-full w-full max-w-2xl flex-col items-center justify-center gap-[clamp(1rem,3vh,2rem)] overflow-hidden py-2 text-center">
                   <div className="hero-orb shrink-0">
-                    {/* Horse mode: static horse face. Unicorn mode: the looping
-                        waving-horse video. Both use object-contain so the whole
+                    {/* Horse mode: static horse face (horse_assets). Unicorn
+                        mode: the looping transparent-background unicorn video
+                        (unicorn_assets). Both use object-contain so the whole
                         subject stays visible on the app background. */}
                     {mode === "unicorn" ? (
                       <video
                         key="hero-unicorn-video"
-                        poster="/unicorn_assets/horse_face.png"
                         aria-label={appName}
                         autoPlay
                         muted
@@ -1171,15 +1171,15 @@ export function ChatApp() {
                         className="h-[clamp(140px,22vh,200px)] w-[clamp(200px,30vh,280px)] object-contain"
                       >
                         <source
-                          src="/unicorn_assets/waving_horse.mp4"
-                          type="video/mp4"
+                          src="/unicorn_assets/unicorn_alpha.webm"
+                          type="video/webm"
                         />
                       </video>
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         key="hero-horse-image"
-                        src="/unicorn_assets/horse_face.png"
+                        src="/horse_assets/horse_face.png"
                         alt={appName}
                         className="h-[clamp(140px,22vh,200px)] w-[clamp(200px,30vh,280px)] object-contain"
                       />

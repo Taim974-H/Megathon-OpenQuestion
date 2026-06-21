@@ -38,6 +38,8 @@ yarn-error.log*
 /private/clients/
 # generated client ad videos
 /public/horse_media/ads/
+# raw source video for the unicorn hero (transparent unicorn_alpha.webm is committed instead)
+/public/unicorn_assets/unicron.mp4
 
 # vercel
 .vercel

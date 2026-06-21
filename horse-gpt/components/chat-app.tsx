@@ -1001,7 +1001,7 @@ export function ChatApp() {
   const starterLine = currentThread?.starterLine ?? starterFallback;
 
   return (
-    <main className="grain app-shell h-[100dvh] overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+    <main className="grain app-shell h-[100dvh] overflow-hidden bg-transparent text-[var(--foreground)]">
       {mode === "unicorn" ? (
         <>
           <div className="ambient-sparkles">
@@ -1220,29 +1220,34 @@ export function ChatApp() {
               ) : messages.length === 0 ? (
                 <div className="mx-auto flex h-full w-full max-w-2xl flex-col items-center justify-center gap-[clamp(1rem,3vh,2rem)] overflow-hidden py-2 text-center">
                   <div className="hero-orb shrink-0">
-                    {/* Transparent horse video composited over the app
-                        background. Prefers the alpha WebM (VP9 yuva420p); falls
-                        back to the original MP4 until the alpha file is added.
-                        object-contain keeps the whole horse visible. */}
-                    <video
-                      key="hero-horse"
-                      poster="/unicorn_assets/horse_face.png"
-                      aria-label={appName}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      className="h-[clamp(140px,22vh,200px)] w-[clamp(200px,30vh,280px)] object-contain"
-                    >
-                      <source
-                        src="/unicorn_assets/horse_alpha.webm"
-                        type="video/webm"
+                    {/* Horse mode: static horse face. Unicorn mode: the looping
+                        waving-horse video. Both use object-contain so the whole
+                        subject stays visible on the app background. */}
+                    {mode === "unicorn" ? (
+                      <video
+                        key="hero-unicorn-video"
+                        poster="/unicorn_assets/horse_face.png"
+                        aria-label={appName}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        className="h-[clamp(140px,22vh,200px)] w-[clamp(200px,30vh,280px)] object-contain"
+                      >
+                        <source
+                          src="/unicorn_assets/waving_horse.mp4"
+                          type="video/mp4"
+                        />
+                      </video>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key="hero-horse-image"
+                        src="/unicorn_assets/horse_face.png"
+                        alt={appName}
+                        className="h-[clamp(140px,22vh,200px)] w-[clamp(200px,30vh,280px)] object-contain"
                       />
-                      <source
-                        src="/unicorn_assets/waving_horse.mp4"
-                        type="video/mp4"
-                      />
-                    </video>
+                    )}
                   </div>
                   <div className="flex flex-col items-center gap-2">
                     <h1 className="text-[clamp(2rem,5.5vw,3.25rem)] font-semibold leading-[1.05] tracking-tight">

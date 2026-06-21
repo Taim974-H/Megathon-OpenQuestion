@@ -36,6 +36,10 @@ type ChatStreamEvent =
   | { type: "final"; content: string }
   | { type: "notice"; notice: string }
   | { type: "error"; error: string };
+type HorseSoundResult = { src: string; played: boolean } | null;
+type ChatAppProps = {
+  debug?: boolean;
+};
 
 const MAX_VISIBLE_MESSAGES = 16;
 const SUGGESTIONS: Record<ChatMode, string[]> = {
@@ -149,6 +153,10 @@ function pickStarterLine(mode: ChatMode) {
   return pickRandom(STARTER_LINES[mode]);
 }
 
+function getDefaultStarterLine(mode: ChatMode) {
+  return STARTER_LINES[mode][0] ?? "";
+}
+
 function titleFromText(text: string, fallback: string) {
   const trimmed = text.trim();
 
@@ -169,6 +177,15 @@ const HORSE_END_SOUNDS = Array.from(
   { length: 6 },
   (_, index) => `/sounds/end-${index + 1}.mp3`,
 );
+const START_SOUND_TAIL_PAUSE_MS: Record<string, number> = {
+  "/sounds/start-1.mp3": 1700,
+  "/sounds/start-2.mp3": 1200,
+  "/sounds/start-3.mp3": 1000,
+  "/sounds/start-4.mp3": 1000,
+  "/sounds/start-5.mp3": 1800,
+  "/sounds/start-6.mp3": 1350,
+  "/sounds/start-7.mp3": 1650,
+};
 const SOUND_STORAGE_KEY = "horsegpt-sound-on";
 // Paced typewriter reveal so the response reads gradually rather than blasting
 // in all at once. ~3 chars every 22ms ≈ 135 chars/sec.
@@ -181,6 +198,18 @@ function readSoundPreference() {
   }
 
   return window.localStorage.getItem(SOUND_STORAGE_KEY) !== "off";
+}
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function waitForStartSoundTail(sound: HorseSoundResult) {
+  if (!sound?.played) {
+    return;
+  }
+
+  await wait(START_SOUND_TAIL_PAUSE_MS[sound.src] ?? 1000);
 }
 
 function triggerPdfDownload(fileName: string, pdfBase64: string) {
@@ -225,31 +254,16 @@ function parseChunk(
 }
 
 function readInitialChatState() {
-  const initialMode = readStoredMode();
-  const storedThreads = loadThreads();
-
-  if (storedThreads.length > 0) {
-    return {
-      threads: storedThreads,
-      currentChatId: storedThreads[0].id,
-      starterFallback: storedThreads[0].starterLine,
-      mode: storedThreads[0].mode,
-      isLoadingChats: false,
-    };
-  }
-
-  const starterLine = pickStarterLine(initialMode);
-
   return {
     threads: [] as ChatThread[],
     currentChatId: null as string | null,
-    starterFallback: starterLine,
-    mode: initialMode,
+    starterFallback: getDefaultStarterLine("horse"),
+    mode: "horse" as ChatMode,
     isLoadingChats: false,
   };
 }
 
-export function ChatApp() {
+export function ChatApp({ debug = false }: ChatAppProps) {
   const initialChatState = readInitialChatState();
   const [threads, setThreads] = useState<ChatThread[]>(initialChatState.threads);
   const [currentChatId, setCurrentChatId] = useState<string | null>(
@@ -268,10 +282,14 @@ export function ChatApp() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportEmail, setExportEmail] = useState("");
   const [isExporting, setIsExporting] = useState(false);
-  const [isLoadingChats] = useState(initialChatState.isLoadingChats);
+  const [isLoadingChats, setIsLoadingChats] = useState(
+    initialChatState.isLoadingChats,
+  );
+  const [burstVersion, setBurstVersion] = useState(0);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [isSoundOn, setIsSoundOn] = useState(readSoundPreference);
+  const [isSoundOn, setIsSoundOn] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const hasLoadedClientStateRef = useRef(false);
   const isSoundOnRef = useRef(isSoundOn);
   const soundCacheRef = useRef<Record<string, HTMLAudioElement>>({});
   const speechAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -285,11 +303,50 @@ export function ChatApp() {
   const messages = currentThread?.messages ?? EMPTY_MESSAGES;
 
   useEffect(() => {
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+
+      const storedThreads = loadThreads();
+      const storedMode = readStoredMode();
+
+      if (storedThreads.length > 0) {
+        setThreads(storedThreads);
+        setCurrentChatId(storedThreads[0].id);
+        setStarterFallback(storedThreads[0].starterLine);
+        setMode(storedThreads[0].mode);
+      } else {
+        setThreads([]);
+        setCurrentChatId(null);
+        setStarterFallback(getDefaultStarterLine(storedMode));
+        setMode(storedMode);
+      }
+
+      setIsSoundOn(readSoundPreference());
+      hasLoadedClientStateRef.current = true;
+      setIsLoadingChats(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedClientStateRef.current) {
+      return;
+    }
     window.localStorage.setItem(MODE_STORAGE_KEY, mode);
     document.documentElement.dataset.mode = mode;
   }, [mode]);
 
   useEffect(() => {
+    if (!hasLoadedClientStateRef.current) {
+      return;
+    }
     isSoundOnRef.current = isSoundOn;
     window.localStorage.setItem(SOUND_STORAGE_KEY, isSoundOn ? "on" : "off");
   }, [isSoundOn]);
@@ -300,7 +357,7 @@ export function ChatApp() {
   // once it has fully revealed, so every send sounds a little different.
   function playHorseSound(phase: "start" | "end" = "start") {
     if (!isSoundOnRef.current || typeof Audio === "undefined") {
-      return Promise.resolve();
+      return Promise.resolve(null);
     }
 
     const pool = phase === "end" ? HORSE_END_SOUNDS : HORSE_START_SOUNDS;
@@ -313,20 +370,27 @@ export function ChatApp() {
       soundCacheRef.current[src] = audio;
     }
 
-    return new Promise<void>((resolve) => {
-      const done = () => {
-        audio.removeEventListener("ended", done);
-        audio.removeEventListener("error", done);
-        resolve();
+    return new Promise<HorseSoundResult>((resolve) => {
+      let settled = false;
+      const done = (played: boolean) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        audio.removeEventListener("ended", onEnded);
+        audio.removeEventListener("error", onError);
+        resolve({ src, played });
       };
+      const onEnded = () => done(true);
+      const onError = () => done(false);
 
-      audio.addEventListener("ended", done);
-      audio.addEventListener("error", done);
+      audio.addEventListener("ended", onEnded);
+      audio.addEventListener("error", onError);
       audio.currentTime = 0;
       const played = audio.play();
 
       if (played && typeof played.catch === "function") {
-        played.catch(() => done());
+        played.catch(() => done(false));
       }
     });
   }
@@ -535,8 +599,7 @@ export function ChatApp() {
       }));
     });
 
-    // Random whinny before the text starts streaming in.
-    await playHorseSound();
+    const startCuePromise = playHorseSound();
 
     try {
       const response = await fetch("/api/chat", {
@@ -556,6 +619,8 @@ export function ChatApp() {
       if (!response.body) {
         throw new Error("The response stream was empty.");
       }
+
+      await waitForStartSoundTail(await startCuePromise);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -627,7 +692,9 @@ export function ChatApp() {
         }
 
         if (event.type === "notice") {
-          setNotice(event.notice);
+          if (debug) {
+            setNotice(event.notice);
+          }
         }
 
         if (event.type === "error") {
@@ -862,7 +929,13 @@ export function ChatApp() {
     setMode(nextMode);
     setStarterFallback(nextStarterLine);
     setError(null);
-    setNotice(nextMode === "unicorn" ? "Unicorn mode engaged." : "Horse mode engaged.");
+    setNotice(
+      debug
+        ? nextMode === "unicorn"
+          ? "Unicorn mode engaged."
+          : "Horse mode engaged."
+        : null,
+    );
 
     const nextThreads = threads.map((thread) => {
       if (thread.messages.length > 0) {
@@ -1134,7 +1207,7 @@ export function ChatApp() {
                 <span className="header-action-label">Export</span>
               </button>
               <a
-                href="/cube"
+                href="/conversation"
                 className="header-action header-action-cta"
                 aria-label="Open conversation mode"
                 title="Conversation"

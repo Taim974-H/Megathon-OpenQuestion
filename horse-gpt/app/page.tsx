@@ -1,12 +1,7 @@
-"use client";
-
-import dynamic from "next/dynamic";
-
-const ChatApp = dynamic(
-  () => import("@/components/chat-app").then((mod) => mod.ChatApp),
-  { ssr: false },
-);
+import { ChatAppShell } from "@/components/chat-app-shell";
 
 export default function Home() {
-  return <ChatApp />;
+  const debug = process.env.DEBUG?.toLowerCase() === "true";
+
+  return <ChatAppShell debug={debug} />;
 }

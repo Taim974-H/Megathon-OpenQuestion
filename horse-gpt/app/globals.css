@@ -75,17 +75,12 @@ body {
   height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
-  /* Platform backdrop: the brand background image, dimmed by a translucent
-     wash of --background so chat text stays readable on top of it. The
-     hero glow and top white fade sit above the image. */
+  /* The brand background image is the complete app backdrop. It covers the
+     whole viewport and scales responsively to any device/orientation. A solid
+     --background color sits underneath only as a fallback before the image
+     loads or if it ever fails. */
   background:
-    var(--hero-glow),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.54), transparent 32%),
-    linear-gradient(
-      color-mix(in srgb, var(--background) 78%, transparent),
-      color-mix(in srgb, var(--background) 78%, transparent)
-    ),
-    url("/unicorn_assets/background.png") center / cover no-repeat fixed,
+    url("/unicorn_assets/background.png") center center / cover no-repeat fixed,
     var(--background);
   color: var(--foreground);
   font-family: var(--app-font-sans);
@@ -104,65 +99,16 @@ input {
   background: var(--selection);
 }
 
+/* Grain texture and the animated unicorn sky gradient have been removed so the
+   background.png image is the sole, unobstructed app background. .grain and
+   .app-shell remain as no-op positioning contexts for the existing markup. */
 .grain {
   position: relative;
-}
-
-.grain::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.045;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08)),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='%2352382a' fill-opacity='0.05'%3E%3Ccircle cx='20' cy='22' r='2'/%3E%3Ccircle cx='108' cy='34' r='1.5'/%3E%3Ccircle cx='196' cy='25' r='2'/%3E%3Ccircle cx='56' cy='102' r='1.5'/%3E%3Ccircle cx='143' cy='118' r='2'/%3E%3Ccircle cx='32' cy='180' r='2'/%3E%3Ccircle cx='188' cy='176' r='1.5'/%3E%3C/g%3E%3C/svg%3E");
-}
-
-:root[data-mode="unicorn"] .grain::before {
-  opacity: 0.075;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.1)),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='%23ff4dc1' fill-opacity='0.11'%3E%3Ccircle cx='20' cy='22' r='3'/%3E%3Ccircle cx='108' cy='34' r='2'/%3E%3Ccircle cx='196' cy='25' r='2.5'/%3E%3Ccircle cx='56' cy='102' r='2'/%3E%3Ccircle cx='143' cy='118' r='3'/%3E%3Ccircle cx='32' cy='180' r='3'/%3E%3Ccircle cx='188' cy='176' r='2'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .app-shell {
   position: relative;
   isolation: isolate;
-}
-
-.app-shell::after {
-  content: "";
-  position: fixed;
-  inset: -18%;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 320ms ease;
-}
-
-:root[data-mode="unicorn"] .app-shell::after {
-  opacity: 0.95;
-  background:
-    radial-gradient(circle at 18% 24%, rgba(255, 101, 153, 0.28), transparent 26%),
-    radial-gradient(circle at 82% 22%, rgba(102, 197, 255, 0.24), transparent 24%),
-    radial-gradient(circle at 50% 88%, rgba(255, 225, 92, 0.24), transparent 26%),
-    linear-gradient(
-      120deg,
-      rgba(255, 99, 146, 0.22) 0%,
-      rgba(255, 161, 62, 0.2) 18%,
-      rgba(255, 225, 92, 0.18) 36%,
-      rgba(96, 218, 126, 0.18) 54%,
-      rgba(92, 186, 255, 0.2) 72%,
-      rgba(128, 110, 255, 0.22) 86%,
-      rgba(233, 102, 255, 0.24) 100%
-    );
-  background-size:
-    160% 160%,
-    180% 180%,
-    170% 170%,
-    220% 220%;
-  animation: unicornSkyShift 18s ease-in-out infinite alternate;
 }
 
 .left-rail {
@@ -437,12 +383,11 @@ input {
 }
 
 .hero-orb {
-  border-radius: 2rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 65%),
-    var(--surface-strong);
-  padding: 0.7rem;
-  box-shadow: none;
+  /* No card/frame: the transparent horse video sits directly on the app
+     background image. A soft drop-shadow grounds the horse in the scene. */
+  background: transparent;
+  padding: 0;
+  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.28));
 }
 
 .glass-chip {
@@ -758,35 +703,6 @@ input {
 
   to {
     rotate: 220deg;
-  }
-}
-
-@keyframes unicornSkyShift {
-  0% {
-    background-position:
-      0% 30%,
-      100% 10%,
-      50% 100%,
-      0% 50%;
-    transform: scale(1) rotate(0deg);
-  }
-
-  50% {
-    background-position:
-      24% 52%,
-      78% 36%,
-      40% 82%,
-      50% 50%;
-    transform: scale(1.04) rotate(2deg);
-  }
-
-  100% {
-    background-position:
-      100% 24%,
-      0% 48%,
-      60% 70%,
-      100% 50%;
-    transform: scale(1.08) rotate(-2deg);
   }
 }
 

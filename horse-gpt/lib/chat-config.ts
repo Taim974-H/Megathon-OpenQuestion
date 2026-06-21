@@ -58,7 +58,7 @@ export const UNICORN_SOUND_SUFFIXES = [
 export const MEGATHON_COPY = {
   title: "MEGATHON",
   subtitle: "The stage Europe never built. Until now.",
-  builtWith: ["Codex by OpenAI", "Base44", "Vapi"],
+  builtWith: ["Codex by OpenAI", "Base44", "PixVerse"],
   stats: ["500+ BUILDERS", "EUR100K+ PRIZE POOL", "3 DAYS"],
   manifesto: [
     "3 days. 500 builders. One mission:",

@@ -7,6 +7,8 @@ import {
 import systemPrompts from "@/lib/system-prompts.json";
 import type { ChatMessage, ChatMode } from "@/types/chat";
 
+type HorsePersona = "normal" | "unhinged";
+
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 1600;
 
@@ -68,8 +70,18 @@ export function normalizeMode(input: unknown): ChatMode {
   return input === "unicorn" ? "unicorn" : "horse";
 }
 
+export function normalizePersona(input: unknown): HorsePersona {
+  return input === "unhinged" ? "unhinged" : "normal";
+}
+
 export function getSystemPrompt(mode: ChatMode) {
-  return mode === "unicorn" ? systemPrompts.unicorn : systemPrompts.horse;
+  if (mode === "unicorn") {
+    return systemPrompts.unicorn;
+  }
+
+  return normalizePersona(process.env.PERSONA) === "unhinged"
+    ? systemPrompts.horseUnhinged
+    : systemPrompts.horse;
 }
 
 export function evaluateGuardrails(message: string): GuardrailResult {

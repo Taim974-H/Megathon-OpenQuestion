@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getOpenAIClient } from "@/lib/openai";
-import { normalizeMode } from "@/lib/horse";
+import { normalizeMode, normalizePersona } from "@/lib/horse";
 
 export const runtime = "nodejs";
 
@@ -11,12 +11,13 @@ const MAX_TTS_CHARS = 2500;
 // so TTS works without extra configuration.
 const DEFAULT_ELEVENLABS_VOICE_ID = "EAbChaVRdtypK7csJZMT";
 
-export async function POST(request: Request) {
+async function createSpeechResponse(inputText: unknown, inputMode: unknown) {
   try {
-    const body = (await request.json()) as { text?: unknown; mode?: unknown };
     const text =
-      typeof body.text === "string" ? body.text.trim().slice(0, MAX_TTS_CHARS) : "";
-    const mode = normalizeMode(body.mode);
+      typeof inputText === "string" ? inputText.trim().slice(0, MAX_TTS_CHARS) : "";
+    const mode = normalizeMode(inputMode);
+    const persona =
+      mode === "unicorn" ? "normal" : normalizePersona(process.env.PERSONA);
 
     if (!text) {
       return NextResponse.json({ error: "Text is required." }, { status: 400 });
@@ -39,23 +40,36 @@ export async function POST(request: Request) {
           body: JSON.stringify({
             text,
             model_id: "eleven_multilingual_v2",
-            voice_settings: {
-              // Very low stability + max style = maximum emotional range and a
-              // hyped, fun, motivating delivery. Faster speed keeps the energy up.
-              stability: 0.15,
-              similarity_boost: 0.85,
-              style: 1.0,
-              use_speaker_boost: true,
-              speed: 1.18,
-            },
+            voice_settings:
+              mode === "unicorn"
+                ? {
+                    stability: 0.36,
+                    similarity_boost: 0.9,
+                    style: 0.72,
+                    use_speaker_boost: true,
+                    speed: 1.12,
+                  }
+                : persona === "unhinged"
+                ? {
+                    stability: 0.1,
+                    similarity_boost: 0.82,
+                    style: 1.0,
+                    use_speaker_boost: true,
+                    speed: 1.24,
+                  }
+                : {
+                    stability: 0.28,
+                    similarity_boost: 0.88,
+                    style: 0.82,
+                    use_speaker_boost: true,
+                    speed: 1.15,
+                  },
           }),
         },
       );
 
       if (response.ok && response.body) {
-        const buffer = Buffer.from(await response.arrayBuffer());
-
-        return new Response(buffer, {
+        return new Response(response.body, {
           headers: {
             "Content-Type": "audio/mpeg",
             "Cache-Control": "no-store",
@@ -99,4 +113,19 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+
+  return createSpeechResponse(
+    url.searchParams.get("text"),
+    url.searchParams.get("mode"),
+  );
+}
+
+export async function POST(request: Request) {
+  const body = (await request.json()) as { text?: unknown; mode?: unknown };
+
+  return createSpeechResponse(body.text, body.mode);
 }

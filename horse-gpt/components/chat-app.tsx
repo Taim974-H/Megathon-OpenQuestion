@@ -1052,7 +1052,7 @@ export function ChatApp({ debug = false }: ChatAppProps) {
 
   return (
     <main className="grain app-shell h-[100dvh] overflow-hidden bg-transparent text-[var(--foreground)]">
-      <div className="mx-auto grid h-[100dvh] w-full max-w-[1440px] grid-cols-1 overflow-hidden md:grid-cols-[228px_minmax(0,1fr)] lg:grid-cols-[256px_minmax(0,1fr)] xl:grid-cols-[272px_minmax(0,1fr)]">
+      <div className="mx-auto grid h-[100dvh] w-full max-w-[1440px] grid-cols-1 overflow-hidden md:grid-cols-[248px_minmax(0,1fr)] lg:grid-cols-[276px_minmax(0,1fr)] xl:grid-cols-[292px_minmax(0,1fr)]">
         {isMobileNavOpen ? (
           <button
             type="button"
@@ -1063,12 +1063,12 @@ export function ChatApp({ debug = false }: ChatAppProps) {
         ) : null}
 
         <aside
-          className={`left-rail fixed inset-y-0 left-0 z-40 flex w-[min(84vw,320px)] min-h-0 flex-col gap-4 overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.9rem+env(safe-area-inset-top))] transition-transform duration-200 md:static md:z-auto md:h-[100dvh] md:w-auto md:translate-x-0 md:px-4 md:pb-4 md:pt-3 ${
+          className={`left-rail fixed inset-y-0 left-0 z-40 flex w-[min(88vw,340px)] min-h-0 flex-col gap-4 overflow-hidden px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.9rem+env(safe-area-inset-top))] transition-transform duration-200 md:static md:z-auto md:h-[100dvh] md:w-auto md:translate-x-0 md:px-5 md:pb-4 md:pt-3 ${
             isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <div className="flex items-center justify-between gap-3 px-2">
-            <div className="outlined-text text-xl tracking-tight">{appName}</div>
+          <div className="sidebar-brand-row flex items-center justify-between gap-3">
+            <div className="sidebar-brand-title outlined-text text-xl tracking-tight">{appName}</div>
             <button
               type="button"
               onClick={() => setIsMobileNavOpen(false)}
@@ -1145,8 +1145,8 @@ export function ChatApp({ debug = false }: ChatAppProps) {
         </aside>
 
         <div className="chat-column flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden px-4 pb-4 pt-3 sm:px-6">
-          <header className="flex items-center justify-between gap-2 py-2">
-            <div className="flex min-w-0 items-center gap-2 md:hidden">
+          <header className="mobile-app-header py-2 md:flex md:justify-end">
+            <div className="mobile-title-row flex min-w-0 items-center gap-2 md:hidden">
               <button
                 type="button"
                 onClick={() => setIsMobileNavOpen(true)}
@@ -1161,7 +1161,7 @@ export function ChatApp({ debug = false }: ChatAppProps) {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="mobile-actions-row flex items-center justify-end gap-1.5 sm:gap-2">
               {isSpeaking ? (
                 <button
                   type="button"

@@ -9,6 +9,13 @@
   --surface: rgba(255, 251, 247, 0.64);
   --surface-strong: rgba(255, 251, 247, 0.88);
   --surface-sidebar: rgba(255, 248, 242, 0.56);
+  --logo-badge-bg: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  --logo-badge-border: color-mix(in srgb, var(--accent-strong) 70%, white);
+  --chat-preview-bg: color-mix(in srgb, var(--accent) 34%, transparent);
+  --chat-preview-hover: color-mix(in srgb, var(--accent) 46%, transparent);
+  --chat-preview-active: rgba(255, 255, 255, 0.58);
+  --chat-preview-border: rgba(255, 255, 255, 0.24);
+  --chat-preview-text: rgba(255, 250, 245, 0.94);
   --accent: #8d5f42;
   --accent-strong: #70462d;
   --accent-soft: rgba(141, 95, 66, 0.12);
@@ -36,6 +43,13 @@
   --surface: rgba(255, 250, 255, 0.62);
   --surface-strong: rgba(255, 248, 255, 0.86);
   --surface-sidebar: rgba(255, 244, 252, 0.55);
+  --logo-badge-bg: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  --logo-badge-border: color-mix(in srgb, var(--accent-strong) 70%, white);
+  --chat-preview-bg: color-mix(in srgb, var(--accent) 32%, transparent);
+  --chat-preview-hover: color-mix(in srgb, var(--accent) 44%, transparent);
+  --chat-preview-active: rgba(255, 255, 255, 0.62);
+  --chat-preview-border: rgba(255, 255, 255, 0.26);
+  --chat-preview-text: rgba(255, 247, 255, 0.94);
   --accent: #d61d95;
   --accent-strong: #af1177;
   --accent-soft: rgba(214, 29, 149, 0.12);
@@ -125,12 +139,14 @@ input {
    - feathered on all four sides with a mask gradient, so it dissolves into
      the scene instead of hard-cutting.
    The tint is low-opacity so the forest still reads through it. */
-.left-rail {
+.chat-column {
   position: relative;
 }
 
-.chat-column {
-  position: relative;
+@media (min-width: 768px) {
+  .left-rail {
+    position: relative;
+  }
 }
 
 .left-rail::before,
@@ -168,6 +184,51 @@ input {
   scrollbar-width: thin;
 }
 
+.sidebar-brand-row {
+  position: relative;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  min-height: calc(5.65rem + env(safe-area-inset-top));
+  width: calc(100% + 0.5rem);
+  margin: calc(0.5rem - 0.9rem - env(safe-area-inset-top)) -0.25rem 0;
+  border: 1px solid var(--logo-badge-border);
+  border-radius: 1.5rem 1.5rem 1.15rem 1.15rem;
+  padding: calc(0.9rem + env(safe-area-inset-top)) 3.25rem 0.85rem;
+  background: var(--logo-badge-bg);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  text-align: center;
+}
+
+.sidebar-brand-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: inline-flex;
+  min-height: 2.25rem;
+  max-width: calc(100% - 4.75rem);
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.sidebar-brand-row > button {
+  position: absolute;
+  right: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+@media (min-width: 768px) {
+  .sidebar-brand-row {
+    min-height: 5.25rem;
+    width: calc(100% + 1rem);
+    margin: 0 -0.5rem;
+    padding: 0.75rem 3.5rem 0.85rem;
+  }
+}
+
 .left-rail-row {
   position: relative;
   display: flex;
@@ -178,25 +239,32 @@ input {
 .left-rail-chat {
   flex: 1 1 auto;
   min-width: 0;
+  border: 1px solid var(--chat-preview-border);
   border-radius: 1rem;
   padding: 0.8rem 0.9rem;
+  background: var(--chat-preview-bg);
   text-align: left;
   font-size: 0.92rem;
-  color: var(--muted);
+  color: var(--chat-preview-text);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
   transition:
     background 160ms ease,
+    border-color 160ms ease,
     color 160ms ease,
     transform 160ms ease;
 }
 
 .left-rail-chat:hover {
-  background: rgba(255, 255, 255, 0.3);
-  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--chat-preview-border) 55%, white);
+  background: var(--chat-preview-hover);
+  color: #fff;
 }
 
 .left-rail-chat-active {
-  background: rgba(255, 255, 255, 0.42);
+  border-color: rgba(255, 255, 255, 0.58);
+  background: var(--chat-preview-active);
   color: var(--foreground);
+  text-shadow: none;
 }
 
 .left-rail-delete {
@@ -290,7 +358,6 @@ input {
 .outlined-text {
   color: #fff;
   font-weight: 700;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
 .sidebar-label {
@@ -362,6 +429,17 @@ input {
     var(--surface-strong);
 }
 
+.mobile-app-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+}
+
+.mobile-title-row,
+.mobile-actions-row {
+  min-width: 0;
+}
+
 /* One button per header action. On mobile it renders as a square icon button;
    from md up it becomes a labelled text pill. The icon/label swap is handled by
    .header-action-icon / .header-action-label so there is a single element (and
@@ -420,6 +498,10 @@ input {
 
 /* From md up, show the text label and hide the icon — text-only on desktop. */
 @media (min-width: 768px) {
+  .mobile-app-header {
+    display: flex;
+  }
+
   .header-action {
     width: auto;
     padding: 0 0.95rem;
@@ -714,6 +796,13 @@ input {
 }
 
 @media (max-width: 767px) {
+  .chat-column {
+    padding-top: calc(0.55rem + env(safe-area-inset-top));
+    padding-right: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    padding-left: 0.75rem;
+  }
+
   .left-rail {
     min-height: 100dvh;
     border-right: 1px solid var(--border);
@@ -742,9 +831,13 @@ input {
 
   .header-control-button,
   .header-action {
-    height: 3rem;
-    width: 3rem;
-    border-radius: 1rem;
+    height: 2.75rem;
+    width: 2.75rem;
+    border-radius: 0.95rem;
+  }
+
+  .mobile-actions-row {
+    width: 100%;
   }
 
   .left-rail-delete {

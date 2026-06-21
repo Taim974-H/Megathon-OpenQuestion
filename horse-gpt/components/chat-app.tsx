@@ -178,9 +178,15 @@ function titleFromText(text: string, fallback: string) {
   return trimmed.length > 52 ? `${trimmed.slice(0, 52).trimEnd()}...` : trimmed;
 }
 
-const HORSE_SOUNDS = Array.from(
-  { length: 8 },
-  (_, index) => `/sounds/horse-${index + 1}.mp3`,
+// Short whinnies (≤2s) played as the response starts, and longer 3–4s horse
+// noises played once the full reply has finished revealing.
+const HORSE_START_SOUNDS = Array.from(
+  { length: 7 },
+  (_, index) => `/sounds/start-${index + 1}.mp3`,
+);
+const HORSE_END_SOUNDS = Array.from(
+  { length: 6 },
+  (_, index) => `/sounds/end-${index + 1}.mp3`,
 );
 const SOUND_STORAGE_KEY = "horsegpt-sound-on";
 // Paced typewriter reveal so the response reads gradually rather than blasting
@@ -308,15 +314,17 @@ export function ChatApp() {
     window.localStorage.setItem(SOUND_STORAGE_KEY, isSoundOn ? "on" : "off");
   }, [isSoundOn]);
 
-  // Play a random horse clip from the pool and resolve once it finishes (or
-  // immediately if sound is off / playback is blocked). Used to bookend each
-  // assistant response so every send sounds a little different.
-  function playHorseSound() {
+  // Play a random horse clip from the given pool and resolve once it finishes
+  // (or immediately if sound is off / playback is blocked). The "start" pool is
+  // a short whinny when the reply begins; the "end" pool is a longer 3–4s noise
+  // once it has fully revealed, so every send sounds a little different.
+  function playHorseSound(phase: "start" | "end" = "start") {
     if (!isSoundOnRef.current || typeof Audio === "undefined") {
       return Promise.resolve();
     }
 
-    const src = pickRandom(HORSE_SOUNDS);
+    const pool = phase === "end" ? HORSE_END_SOUNDS : HORSE_START_SOUNDS;
+    const src = pickRandom(pool);
     let audio = soundCacheRef.current[src];
 
     if (!audio) {
@@ -668,8 +676,8 @@ export function ChatApp() {
       await typewriter;
       assistantText = targetText;
 
-      // Random whinny once the full response has finished revealing.
-      void playHorseSound();
+      // Longer 3–4s horse noise once the full response has finished revealing.
+      void playHorseSound("end");
       // Speak the reply aloud when the turn was started by voice.
       if (speakReply) {
         void speakText(assistantText);

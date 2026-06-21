@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   startTransition,
   useEffect,
@@ -1221,20 +1220,16 @@ export function ChatApp() {
               ) : messages.length === 0 ? (
                 <div className="mx-auto flex h-full w-full max-w-2xl flex-col items-center justify-center gap-[clamp(1rem,3vh,2rem)] overflow-hidden py-2 text-center">
                   <div className="hero-orb shrink-0">
-                    {mode === "horse" ? (
-                      <Image
-                        src="/horse.jpeg"
-                        alt={appName}
-                        width={280}
-                        height={190}
-                        className="h-[clamp(116px,18vh,160px)] w-[clamp(170px,26vh,236px)] rounded-[1.6rem] object-cover"
-                        priority
-                      />
-                    ) : (
-                      <div className="flex h-[clamp(116px,18vh,160px)] w-[clamp(170px,26vh,236px)] items-center justify-center rounded-[1.6rem] text-[clamp(3.5rem,9vh,5rem)]">
-                        🦄
-                      </div>
-                    )}
+                    <video
+                      src="/unicorn_assets/waving_horse.mp4"
+                      poster="/unicorn_assets/horse_face.png"
+                      aria-label={appName}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      className="h-[clamp(116px,18vh,160px)] w-[clamp(170px,26vh,236px)] rounded-[1.6rem] object-cover"
+                    />
                   </div>
                   <div className="flex flex-col items-center gap-2">
                     <h1 className="text-[clamp(2rem,5.5vw,3.25rem)] font-semibold leading-[1.05] tracking-tight">

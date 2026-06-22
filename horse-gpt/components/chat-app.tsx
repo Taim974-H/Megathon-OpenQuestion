@@ -430,6 +430,7 @@ export function ChatApp({ debug = false }: ChatAppProps) {
       const cleanup = () => {
         URL.revokeObjectURL(url);
         if (speechAudioRef.current === audio) {
+          
           speechAudioRef.current = null;
         }
         setIsSpeaking(false);

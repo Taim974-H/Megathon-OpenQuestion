@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { VoiceCubeShell } from "@/components/voice-cube-shell";
 
 export default function ConversationPage() {
@@ -5,7 +7,9 @@ export default function ConversationPage() {
 
   return (
     <main className="grain h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-      <VoiceCubeShell debug={debug} />
+      <Suspense fallback={null}>
+        <VoiceCubeShell debug={debug} />
+      </Suspense>
     </main>
   );
 }

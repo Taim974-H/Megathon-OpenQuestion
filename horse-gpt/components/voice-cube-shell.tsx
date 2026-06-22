@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 
 const VoiceCube = dynamic(
   () => import("@/components/voice-cube").then((mod) => mod.VoiceCube),
@@ -8,5 +9,7 @@ const VoiceCube = dynamic(
 );
 
 export function VoiceCubeShell({ debug = false }: { debug?: boolean }) {
-  return <VoiceCube debug={debug} />;
+  const searchParams = useSearchParams();
+
+  return <VoiceCube debug={debug} threadId={searchParams.get("thread") ?? undefined} />;
 }

@@ -1049,6 +1049,9 @@ export function ChatApp({ debug = false }: ChatAppProps) {
 
   const appName = getModeAppName(mode);
   const starterLine = currentThread?.starterLine ?? starterFallback;
+  const conversationHref = currentChatId
+    ? `/conversation?thread=${encodeURIComponent(currentChatId)}`
+    : "/conversation";
 
   return (
     <main className="grain app-shell h-[100dvh] overflow-hidden bg-transparent text-[var(--foreground)]">
@@ -1207,7 +1210,7 @@ export function ChatApp({ debug = false }: ChatAppProps) {
                 <span className="header-action-label">Export</span>
               </button>
               <a
-                href="/conversation"
+                href={conversationHref}
                 className="header-action header-action-cta"
                 aria-label="Open conversation mode"
                 title="Conversation"
@@ -1263,9 +1266,6 @@ export function ChatApp({ debug = false }: ChatAppProps) {
                     <h1 className="text-[clamp(2rem,5.5vw,3.25rem)] font-semibold leading-[1.05] tracking-tight">
                       {starterLine}
                     </h1>
-                    <p className="text-sm text-[var(--muted)] sm:text-[0.95rem]">
-                      Pick a starter below or just start typing.
-                    </p>
                   </div>
                   <div className="flex w-full flex-wrap justify-center gap-2.5">
                     {SUGGESTIONS[mode].map((suggestion) => (

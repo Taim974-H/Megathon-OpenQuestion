@@ -1,18 +1,19 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   HORSE_STARTER_LINES,
   UNICORN_STARTER_LINES,
 } from "@/lib/chat-config";
-import { createThread, updateThread } from "@/lib/chat-local";
+import { createThread, loadThreads, updateThread } from "@/lib/chat-local";
 import type { ChatMessage, ChatMode } from "@/types/chat";
 
 type CubeState = "" | "listening" | "thinking" | "speaking";
 type VoiceCubeProps = {
   debug?: boolean;
+  threadId?: string;
 };
 type SpeechRecognitionAlternative = {
   transcript: string;
@@ -60,18 +61,19 @@ const HORSE_END_SOUNDS = Array.from(
   (_, index) => `/sounds/end-${index + 1}.mp3`,
 );
 const START_SOUND_TAIL_PAUSE_MS: Record<string, number> = {
-  "/sounds/start-1.mp3": 1700,
-  "/sounds/start-2.mp3": 1200,
-  "/sounds/start-3.mp3": 1000,
-  "/sounds/start-4.mp3": 1000,
-  "/sounds/start-5.mp3": 1800,
-  "/sounds/start-6.mp3": 1350,
-  "/sounds/start-7.mp3": 1650,
+  "/sounds/start-1.mp3": 450,
+  "/sounds/start-2.mp3": 320,
+  "/sounds/start-3.mp3": 280,
+  "/sounds/start-4.mp3": 280,
+  "/sounds/start-5.mp3": 480,
+  "/sounds/start-6.mp3": 360,
+  "/sounds/start-7.mp3": 440,
 };
 const MODE_STORAGE_KEY = "horsegpt-chat-mode";
+const THINKING_CUE_DELAY_MS = 1000;
 // Stop a recording turn once the mic has been quiet for this long.
-const SILENCE_MS = 720;
-const LIVE_TRANSCRIPT_SILENCE_MS = 580;
+const SILENCE_MS = 560;
+const LIVE_TRANSCRIPT_SILENCE_MS = 420;
 const SPEECH_THRESHOLD = 0.03;
 const RELEASE_THRESHOLD = 0.02;
 const MAX_HISTORY = 16;
@@ -120,7 +122,8 @@ function readStoredMode(): ChatMode {
     : "horse";
 }
 
-export function VoiceCube({ debug = false }: VoiceCubeProps) {
+export function VoiceCube({ debug = false, threadId }: VoiceCubeProps) {
+  const router = useRouter();
   const [cubeState, setCubeState] = useState<CubeState>("");
   const [transcript, setTranscript] = useState(
     "Ready when you are",
@@ -130,6 +133,7 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<ChatMode>("horse");
+  const [isReady, setIsReady] = useState(false);
 
   // Mutable refs so async loops always see current values.
   const convoModeRef = useRef(false);
@@ -147,6 +151,7 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
   const liveTextRef = useRef("");
   const savedMessagesRef = useRef<ChatMessage[]>([]);
   const voiceThreadIdRef = useRef<string | null>(null);
+  const autoStartedRef = useRef(false);
 
   useEffect(() => {
     historyRef.current = history;
@@ -163,19 +168,31 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
   useEffect(() => {
     let cancelled = false;
 
+    setIsReady(false);
+    autoStartedRef.current = false;
+
     queueMicrotask(() => {
       if (!cancelled) {
-        const storedMode = readStoredMode();
+        const thread = threadId
+          ? loadThreads().find((entry) => entry.id === threadId)
+          : null;
+        const storedMode = thread?.mode ?? readStoredMode();
+        const initialMessages = thread?.messages.slice(-MAX_SAVED_MESSAGES) ?? [];
 
         setMode(storedMode);
+        setHistory(initialMessages.slice(-MAX_HISTORY));
+        historyRef.current = initialMessages.slice(-MAX_HISTORY);
+        savedMessagesRef.current = initialMessages;
+        voiceThreadIdRef.current = thread?.id ?? null;
         document.documentElement.dataset.mode = storedMode;
+        setIsReady(true);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [threadId]);
 
   useEffect(() => {
     document.documentElement.dataset.mode = mode;
@@ -546,7 +563,7 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, mode: readStoredMode() }),
+      body: JSON.stringify({ messages, mode }),
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -588,7 +605,7 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
     if (buffer.trim()) handleLine(buffer);
 
     return assistantText.trim();
-  }, []);
+  }, [mode]);
 
   // ── One full turn: listen → think → horse sound → speak → horse sound ──
   const runTurn = useCallback(async (sessionId: number) => {
@@ -641,7 +658,9 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
       setState("thinking");
       setTranscript("Thinking");
       let canRevealReply = false;
-      const startCuePromise = playHorseSound();
+      const startCuePromise = wait(THINKING_CUE_DELAY_MS).then(() =>
+        isSessionActive(sessionId) ? playHorseSound() : null,
+      );
       const showReplyText = (content: string) => {
         setTranscript("Responding");
         setHistory((current) => {
@@ -795,20 +814,14 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
     setState("");
   }, [setState]);
 
-  const toggleConvo = useCallback(() => {
-    if (convoMode) {
-      setConvoMode(false);
-      stopEverything();
-      setTranscript("The conversation has ended.");
+  const startConvo = useCallback(() => {
+    if (convoModeRef.current) {
       return;
     }
+
     setError(null);
-    setHistory([]);
     setLiveUserText("");
     setConvoMode(true);
-    historyRef.current = [];
-    savedMessagesRef.current = [];
-    voiceThreadIdRef.current = null;
     liveTextRef.current = "";
     const sessionId = sessionRef.current + 1;
     sessionRef.current = sessionId;
@@ -816,7 +829,23 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
     setState("listening");
     setTranscript("Listening");
     void runTurn(sessionId);
-  }, [convoMode, runTurn, setState, stopEverything]);
+  }, [runTurn, setState]);
+
+  const exitConversation = useCallback(() => {
+    setConvoMode(false);
+    stopEverything();
+
+    router.push("/");
+  }, [router, stopEverything]);
+
+  useEffect(() => {
+    if (!isReady || autoStartedRef.current) {
+      return;
+    }
+
+    autoStartedRef.current = true;
+    startConvo();
+  }, [isReady, startConvo]);
 
   useEffect(() => {
     return () => {
@@ -911,22 +940,15 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
         </svg>
         </div>
 
-        <div className="status-area">
-          <div className="cube-transcript">{transcript}</div>
-          {error ? <div className="cube-error">{error}</div> : null}
-        </div>
-
         <div className="cube-controls">
           <button
             type="button"
-            className={`convo-btn ${convoMode ? "active" : ""}`}
-            onClick={() => void toggleConvo()}
+            className="back-chat-btn"
+            onClick={exitConversation}
           >
-            {convoMode ? "End Conversation" : "Start Conversation"}
-          </button>
-          <Link href="/" className="cube-link">
             Back to chat
-          </Link>
+          </button>
+          {error ? <div className="cube-error">{error}</div> : null}
         </div>
       </section>
 
@@ -987,7 +1009,7 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
         .cube-wrap.unicorn-mode {
           background:
             linear-gradient(120deg, rgba(255, 79, 139, 0.18), rgba(255, 159, 28, 0.12) 18%, rgba(255, 228, 94, 0.14) 34%, rgba(71, 224, 127, 0.12) 50%, rgba(67, 199, 255, 0.14) 68%, rgba(143, 122, 255, 0.16) 84%, rgba(244, 93, 255, 0.18)),
-            radial-gradient(ellipse at top, rgba(255, 255, 255, 0.86), transparent 52%),
+            radial-gradient(ellipse at top, rgba(255, 79, 139, 0.12), transparent 52%),
             #fff5fc;
         }
         .cube-wrap.unicorn-mode::before {
@@ -1017,7 +1039,7 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
           inset: 0;
           pointer-events: none;
           background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.54), transparent 32%),
+            linear-gradient(180deg, rgba(67, 199, 255, 0.1), transparent 32%),
             radial-gradient(ellipse at 50% 110%, rgba(255, 231, 94, 0.2), transparent 48%);
         }
         .voice-panel {
@@ -1030,6 +1052,7 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
           align-items: center;
           justify-content: center;
           gap: clamp(12px, 2vh, 24px);
+          background: transparent;
         }
         .ambient-glow {
           position: absolute;
@@ -1243,22 +1266,21 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
           opacity: 0.8;
         }
         .horse-stage {
-          --horse-size: clamp(180px, 34vh, 300px);
+          --horse-size: clamp(220px, 42vh, 380px);
           width: var(--horse-size);
           height: var(--horse-size);
           position: relative;
           z-index: 2;
           flex-shrink: 0;
-        }
-        .unicorn-mode .horse-stage {
-          filter:
-            drop-shadow(0 22px 36px rgba(214, 29, 149, 0.16))
-            drop-shadow(0 0 22px rgba(67, 199, 255, 0.16));
+          background: transparent;
+          isolation: isolate;
         }
         .horse {
+          display: block;
           width: 100%;
           height: 100%;
           overflow: visible;
+          background: transparent;
           /* Gentle idle breathing for the whole horse. */
           animation: horseBreathe 4.5s ease-in-out infinite;
         }
@@ -1321,7 +1343,6 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
         }
         .unicorn-mode .mane {
           fill: url(#unicornManeGradient);
-          filter: drop-shadow(0 0 10px rgba(244, 93, 255, 0.24));
         }
         .unicorn-mode .horn,
         .unicorn-mode .horn-ridge {
@@ -1585,7 +1606,6 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
         @media (prefers-reduced-motion: reduce) {
           .cube-wrap.unicorn-mode::before,
           .unicorn-mode .ambient-glow,
-          .unicorn-mode .convo-btn,
           .horse,
           .horse-head,
           .horse-shadow,
@@ -1599,26 +1619,9 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
             animation: none !important;
           }
         }
-        .status-area {
-          text-align: center;
-          z-index: 2;
-          max-width: min(540px, 90vw);
-        }
-        .status-label {
-          font-size: 11px;
-          letter-spacing: 0.25em;
-          text-transform: uppercase;
-          color: var(--muted, #8a7a6a);
-          margin-bottom: 8px;
-        }
-        .cube-transcript {
-          min-height: 1.45em;
-          font-size: clamp(15px, 2.2vh, 18px);
-          line-height: 1.45;
-          color: var(--foreground, #1a140e);
-        }
         .cube-error {
-          margin-top: 8px;
+          max-width: min(360px, 86vw);
+          text-align: center;
           font-size: 13px;
           color: #dc2626;
         }
@@ -1629,53 +1632,31 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
           gap: 10px;
           z-index: 2;
         }
-        .convo-btn {
-          padding: 12px 28px;
-          border-radius: 9999px;
-          font-size: 15px;
-          font-weight: 600;
-          color: #fff;
-          background: linear-gradient(135deg, #8a5a2b, #b4824a);
+        .back-chat-btn {
+          padding: 8px 10px;
+          border-radius: 6px;
+          font-size: 16px;
+          font-weight: 500;
+          color: var(--muted, #8a7a6a);
+          background: transparent;
+          text-decoration: underline;
+          text-underline-offset: 3px;
           transition:
-            transform 0.15s ease,
-            filter 0.15s ease,
-            box-shadow 0.15s ease;
+            color 0.15s ease,
+            opacity 0.15s ease;
         }
-        .unicorn-mode .convo-btn {
-          background: linear-gradient(90deg, #ff4f8b, #ff9f1c, #ffe45e, #47e07f, #43c7ff, #8f7aff, #f45dff);
-          background-size: 180% 100%;
-          color: #fff;
-          box-shadow: 0 12px 28px rgba(214, 29, 149, 0.2);
-          animation: rainbowButton 8s linear infinite;
+        .back-chat-btn:hover {
+          color: var(--foreground, #1a140e);
         }
-        .convo-btn:hover {
-          transform: translateY(-1px);
-          filter: brightness(1.04);
+        .back-chat-btn:active {
+          opacity: 0.72;
         }
-        .convo-btn:active {
-          transform: translateY(0) scale(0.98);
-        }
-        .convo-btn:focus-visible,
-        .cube-link:focus-visible {
+        .back-chat-btn:focus-visible {
           outline: 2px solid var(--accent, #8d5f42);
           outline-offset: 4px;
         }
-        .convo-btn.active {
-          background: linear-gradient(135deg, #dc2626, #f87171);
-          box-shadow: 0 10px 26px rgba(220, 38, 38, 0.18);
-        }
-        .unicorn-mode .convo-btn.active {
-          background: linear-gradient(90deg, #d61d95, #8f7aff, #43c7ff);
-          box-shadow: 0 12px 28px rgba(214, 29, 149, 0.24);
-        }
-        .cube-link {
-          font-size: 14px;
-          color: var(--muted, #8a7a6a);
-          text-decoration: underline;
-        }
-        .unicorn-mode .cube-link,
-        .unicorn-mode .cube-transcript {
-          color: #6d217c;
+        .unicorn-mode .back-chat-btn {
+          color: #7f5f8e;
         }
         @media (max-width: 860px) {
           .cube-wrap {
@@ -1691,7 +1672,7 @@ export function VoiceCube({ debug = false }: VoiceCubeProps) {
             gap: 10px;
           }
           .horse-stage {
-            --horse-size: clamp(150px, 26vh, 220px);
+            --horse-size: clamp(180px, 30vh, 280px);
           }
           .conversation-panel {
             height: auto;
